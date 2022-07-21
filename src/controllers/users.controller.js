@@ -94,15 +94,15 @@ exports.login = async (req, res) => {
         if (user.blocked) {
             return res.status(403).json({
                 success: false,
-                error: "A tua conta encontra-se bloqueada no momento. Para a próxima pensa no que fazes!",
+                error: "A tua conta encontra-se bloqueada no momento!",
             });
         }
         const token = jwt.sign({
-                username: user.username,
+                userId: user._id,
                 typeUser: user.typeUser
             },
             SECRET, {
-                expiresIn: "24h",
+                expiresIn: "2h",
             }
         );
 
@@ -115,6 +115,24 @@ exports.login = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas no login. Tente mais tarde!",
+        });
+    }
+}
+
+exports.findOne = async (req, res) => {
+    try {
+        const user = await User.findById(req.userId)
+            .select("-_id -password -blocked")
+            .exec();
+
+        return res.status(200).json({
+            success: true,
+            user,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao obter a sua informação. Tente mais tarde!",
         });
     }
 }

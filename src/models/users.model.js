@@ -36,7 +36,7 @@ module.exports = (mongoose) => {
             required: [true, "Insira um tipo de utilizador!"],
             enum: {
                 values: ["Administrador", "Professor", "Criança", "Tutor"],
-                message: "{VALUE} não é válido! Tente Professor, Criança ou Tutor.",
+                message: "{VALUE} não é válido! Tente Administrador, Professor, Criança ou Tutor.",
             },
         },
         imgProfile: {
