@@ -1,7 +1,11 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const {SECRET} = require("../config");
-const { cleanEmptyObjectKeys } = require("../helpers");
+const {
+    SECRET
+} = require("../config");
+const {
+    cleanEmptyObjectKeys
+} = require("../helpers");
 const db = require("../models");
 const User = db.users;
 
@@ -11,7 +15,7 @@ exports.register = async (req, res) => {
             .status(400)
             .json({
                 success: false,
-                error: "You can't register as an admin!"
+                error: "Não podes criar uma conta de administrador!"
             });
     }
     if (!req.body.password) {
@@ -19,8 +23,7 @@ exports.register = async (req, res) => {
             .status(400)
             .json({
                 success: false,
-                error: "Please provide a password!",
-                erro: "Insira uma password!"
+                error: "Insira uma password!"
             });
     }
     const user = new User(req.body);
@@ -31,14 +34,14 @@ exports.register = async (req, res) => {
         await user.save();
         return res.status(201).json({
             success: true,
-            message: `User ${user.username} created!`,
+            message: `Utilizador ${user.username} criado!`,
             url: `api/users/${user._id}`,
         });
     } catch (err) {
         if (err.name === "MongoServerError" && err.code === 11000) {
             return res.status(422).json({
                 success: false,
-                error: `The username ${req.body.username} or email ${req.body.email} are already in use!`,
+                error: `O utilizador ${req.body.username} ou email ${req.body.email} já estão a ser usados!`,
             });
         } else if (err.name === "ValidationError") {
             let errors = [];
@@ -52,7 +55,7 @@ exports.register = async (req, res) => {
         }
         return res.status(500).json({
             success: false,
-            error: err.message || "Some error occurred while creating the user.",
+            error: err.message || "Tivemos problemas no registo. Tenta mais tarde!",
         });
 
     }
@@ -64,7 +67,7 @@ exports.login = async (req, res) => {
             .status(400)
             .json({
                 success: false,
-                error: "Login with username and password!"
+                error: "Login com nome de utilizador e password!"
             });
     }
     try {
@@ -75,7 +78,7 @@ exports.login = async (req, res) => {
         if (!user) {
             return res.status(404).json({
                 success: false,
-                error: "User not found!",
+                error: "Utilizador não encontrado!",
             });
         }
 
@@ -84,14 +87,14 @@ exports.login = async (req, res) => {
         if (!check) {
             return res.status(401).json({
                 success: false,
-                error: "Username and password don't match!",
+                error: "Nome de utilizador e password não coincidem!",
             });
         }
 
         if (user.blocked) {
             return res.status(403).json({
                 success: false,
-                error: "Your account is blocked. Please try again later!",
+                error: "A tua conta encontra-se bloqueada no momento. Para a próxima pensa no que fazes!",
             });
         }
         const token = jwt.sign({
@@ -111,7 +114,7 @@ exports.login = async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             success: false,
-            error: "Some error occurred while logging in!",
+            error: "Tivemos problemas no login. Tente mais tarde!",
         });
     }
 }
