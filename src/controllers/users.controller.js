@@ -367,13 +367,6 @@ exports.deleteOne = async (req, res) => {
             });
         }
 
-        if (user.typeUser === "Administrador") {
-            return res.status(400).json({
-                success: false,
-                message: "Não é possível apagar a conta de administradores!",
-            });
-        }
-
         await User.findByIdAndRemove(req.params.user_id).exec();
 
         // missing relations
@@ -474,29 +467,26 @@ exports.findRelations = async (req, res) => {
         });
     }
     try {
-        /*
         const user = await User.findById(req.userId).exec();
 
-        const allChildren = await User.find({
+        const children = await User.find({
             _id: {
                 $in: user.children
             }
         }).select("name").exec();
 
-        const children = allChildren.map(child => {
-            let nameparts = child.name.split(" ");
-            let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
-            return {
-                ...child,
-                initials
-            }
-        });
-
         return res.status(200).json({
             success: true,
-            children
+            children: children.map(child => {
+                let nameparts = child.name.split(" ");
+                let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
+                return {
+                    _id: child._id,
+                    name: child.name,
+                    initials
+                }
+            })
         });
-         */
     } catch (err) {
         return res.status(500).json({
             success: false,
