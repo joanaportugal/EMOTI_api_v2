@@ -16,6 +16,10 @@ router.route("/profile")
 
 router.route("/admin").post(authController.verifyToken, usersController.createOneAdmin);
 
+router.route("/children")
+    .get(authController.verifyToken, usersController.findRelations)
+    .post(authController.verifyToken, usersController.createRelation)
+
 router.route("/:user_id")
     .get(authController.verifyToken, usersController.findOne)
     .patch(authController.verifyToken, usersController.updateOne)
