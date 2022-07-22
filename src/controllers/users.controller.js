@@ -265,15 +265,23 @@ exports.findOne = async (req, res) => {
 }
 
 exports.updateProfile = async (req, res) => {
-    if (!req.body.password && !req.body.imgProfile) {
+    if (!req.body.oldPass && !req.body.newPass && !req.body.imgProfile) {
         return res.status(400).send({
             success: false,
             error: "Precisamos de atualizar a password ou imagem de perfil!",
         });
     }
     try {
-        if (req.body.password) {
-            const encryptedPw = bcrypt.hashSync(req.body.password, 10);
+        if (req.body.newPass) {
+            const user = await User.findById(req.userId).exec();
+            const areEqual = bcrypt.compareSync(req.body.oldPass, user.password);
+            if (!areEqual) {
+                return res.status(400).json({
+                    success: false,
+                    message: `A password antiga não é a password guardada!`,
+                });
+            }
+            const encryptedPw = bcrypt.hashSync(req.body.newPass, 10);
             await User.findByIdAndUpdate(req.userId, {
                 password: encryptedPw
             }, {
