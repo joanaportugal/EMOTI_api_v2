@@ -18,7 +18,10 @@ router.route("/admin").post(authController.verifyToken, usersController.createOn
 
 router.route("/children")
     .get(authController.verifyToken, usersController.findRelations)
-    .post(authController.verifyToken, usersController.createRelation)
+    .post(authController.verifyToken, usersController.createRelation);
+
+router.route("/children/:user_id")
+    .delete(authController.verifyToken, usersController.deleteRelation);
 
 router.route("/:user_id")
     .get(authController.verifyToken, usersController.findOne)

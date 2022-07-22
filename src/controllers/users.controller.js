@@ -495,7 +495,7 @@ exports.findRelations = async (req, res) => {
     }
 }
 
-exports.removeRelation = async (req, res) => {
+exports.deleteRelation = async (req, res) => {
     if (req.typeUser !== "Tutor") {
         return res.status(403).json({
             success: false,
@@ -503,11 +503,39 @@ exports.removeRelation = async (req, res) => {
         });
     }
     try {
+        const user = await User.findById(req.userId).exec();
+
+        if (!user.children.includes(req.params.user_id)) {
+            return res.status(404).json({
+                success: false,
+                error: `Não tem uma relação com essa criança!`,
+            });
+        }
+
+        // update tutor and child
+        await User.findByIdAndUpdate(
+            req.userId, {
+                $pull: {
+                    children: req.params.user_id
+                }
+            }, {
+                returnOriginal: false, // to return the updated document
+                runValidators: false, //runs update validators on update command
+                useFindAndModify: false, //remove deprecation warning
+            }
+        ).exec();
+
         return res.status(200).json({
             success: true,
-            message: ""
+            message: "A criança já não está mais associada!",
         });
     } catch (err) {
+        if (!checkObjectId(req.params.userId)) {
+            return res.status(400).json({
+                success: false,
+                error: "Insira um id válido!",
+            });
+        }
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao remover a criança. Tente mais tarde!",
