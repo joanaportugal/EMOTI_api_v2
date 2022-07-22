@@ -14,7 +14,6 @@ exports.verifyToken = (req, res, next) => {
         let decoded = jwt.verify(token, config.SECRET);
         req.userId = decoded.userId;
         req.typeUser = decoded.typeUser;
-        console.log(req.userId);
         next();
     } catch (err) {
         return res.status(401).json({

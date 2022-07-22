@@ -4,7 +4,8 @@ const {
     SECRET
 } = require("../config");
 const {
-    cleanEmptyObjectKeys
+    cleanEmptyObjectKeys,
+    checkObjectId
 } = require("../helpers");
 const db = require("../models");
 const User = db.users;
@@ -59,7 +60,7 @@ exports.register = async (req, res) => {
         });
 
     }
-};
+}
 
 exports.login = async (req, res) => {
     if (!(req.body.username && req.body.password)) {
@@ -119,7 +120,56 @@ exports.login = async (req, res) => {
     }
 }
 
-exports.findOne = async (req, res) => {
+exports.createOneAdmin = async (req, res) => {
+    if (req.typeUser !== "Administrador") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões registar um utilizador administrador!",
+        });
+    }
+    if (!req.body.password) {
+        return res
+            .status(400)
+            .json({
+                success: false,
+                error: "Insira uma password!"
+            });
+    }
+    const user = new User({
+        ...req.body,
+        typeUser: "Administrador",
+    });
+    try {
+        await user.save();
+        return res.status(200).json({
+            success: true,
+            message: `Administrador ${user.username} criado!`,
+            url: `api/users/${user._id}`,
+        });
+    } catch (err) {
+        if (err.name === "MongoServerError" && err.code === 11000) {
+            return res.status(422).json({
+                success: false,
+                error: `O utilizador ${req.body.username} ou email ${req.body.email} já estão a ser usados!`,
+            });
+        } else if (err.name === "ValidationError") {
+            let errors = [];
+            Object.keys(err.errors).forEach((key) => {
+                errors.push(err.errors[key].message);
+            });
+            return res.status(400).json({
+                success: false,
+                error: errors
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao criar um novo administrador. Tente mais tarde!",
+        });
+    }
+}
+
+exports.getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.userId)
             .select("-_id -password -blocked")
@@ -133,6 +183,200 @@ exports.findOne = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao obter a sua informação. Tente mais tarde!",
+        });
+    }
+}
+
+exports.findAll = async (req, res) => {
+    if (req.typeUser !== "Administrador") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões para ver todos os utilizadores!",
+        });
+    }
+
+    try {
+        let users = await User.find(cleanEmptyObjectKeys({
+            name: new RegExp(req.query.name, "i"),
+            typeUser: req.query.typeUser,
+        })).select(
+            "username email typeUser name blocked"
+        ).exec();
+        return res.status(200).json({
+            success: true,
+            users
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao obter a lista de utilizadores. Tente mais tarde!",
+        });
+    }
+
+}
+
+exports.findOne = async (req, res) => {
+    if (req.typeUser !== "Administrador") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões para ver a informação dos uilizadores!",
+        });
+    }
+    try {
+        const user = await User.findById(req.params.user_id)
+            .select("-password")
+            .exec();
+
+        return user ? res.status(200).json({
+            success: true,
+            user,
+        }) : res.status(404).json({
+            success: false,
+            error: "Utilizador não encontrado!",
+        });
+    } catch (err) {
+        if (!checkObjectId(req.params.userId)) {
+            return res.status(400).json({
+                success: false,
+                error: "Insira um id válido!",
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao encontrar o utilizador. Tente mais tarde!",
+        });
+    }
+}
+
+exports.updateProfile = async (req, res) => {
+    if (!req.body.password && !req.body.imgProfile) {
+        return res.status(400).send({
+            success: false,
+            error: "Precisamos de atualizar a password ou imagem de perfil!",
+        });
+    }
+    try {
+        if (req.body.password) {
+            const encryptedPw = bcrypt.hashSync(req.body.password, 10);
+            await User.findByIdAndUpdate(req.userId, {
+                password: encryptedPw
+            }, {
+                returnOriginal: false,
+                runValidators: true,
+                useFindAndModify: false
+            }).exec();
+            return res.status(200).json({
+                success: true,
+                message: `Password atualizada!`,
+            });
+        }
+
+        await User.findByIdAndUpdate(req.userId, {
+            imgProfile: req.body.imgProfile
+        }, {
+            runValidators: true,
+            useFindAndModify: false
+        }).exec();
+
+        return res.status(200).json({
+            success: true,
+            message: `Imagem atualizada!`,
+        });
+
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao atualizar a sua informação. Tente mais tarde!",
+        });
+    }
+}
+
+exports.updateOne = async (req, res) => {
+    if (req.typeUser !== "Administrador") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões para editar utilizadores!",
+        });
+    }
+    try {
+        const user = await User.findById(req.params.user_id).exec();
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: "Utilizador não encontrado!",
+            });
+        }
+
+        await User.findByIdAndUpdate(req.params.user_id, {
+            blocked: !user.blocked
+        }, {
+            returnOriginal: false,
+            runValidators: true,
+            useFindAndModify: false
+        }).exec();
+
+
+        return res.status(404).json({
+            success: false,
+            message: !user.blocked ? "Utilizador bloqueado!" : "Utilizador desbloqueado!",
+        });
+    } catch (err) {
+        if (!checkObjectId(req.params.userId)) {
+            return res.status(400).json({
+                success: false,
+                error: "Insira um id válido!",
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao obter a lista de utilizadores. Tente mais tarde!",
+        });
+    }
+}
+
+exports.deleteOne = async (req, res) => {
+    if (req.typeUser !== "Administrador") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões para apagar os utilizadores!",
+        });
+    }
+    try {
+        const user = await User.findById(req.params.user_id).exec();
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: "Utilizador não encontrado!",
+            });
+        }
+
+        if (user.typeUser === "Administrador") {
+            return res.status(400).json({
+                success: false,
+                message: "Não é possível apagar a conta de administradores!",
+            });
+        }
+
+        await User.findByIdAndRemove(req.params.user_id).exec();
+
+        // missing relations
+
+        return res.status(200).json({
+            success: true,
+            message: "Utilizador apagado!"
+        });
+    } catch (err) {
+        if (!checkObjectId(req.params.userId)) {
+            return res.status(400).json({
+                success: false,
+                error: "Insira um id válido!",
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao obter a lista de utilizadores. Tente mais tarde!",
         });
     }
 }
