@@ -2,6 +2,7 @@ const express = require("express");
 
 const usersRoute = require("./users.routes");
 const emotionsRoute = require("./emotions.routes");
+const badgesRoute = require("./badges.routes");
 
 let router = express.Router();
 
@@ -20,6 +21,7 @@ router.use((req, res, next) => {
 
 router.use("/users", usersRoute)
 router.use("/emotions", emotionsRoute)
+router.use("/badgesRoute", badgesRoute)
 
 router.all("*", function (req, res) {
     res.status(404).json({

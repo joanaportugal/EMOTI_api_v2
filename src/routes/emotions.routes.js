@@ -1,9 +1,7 @@
 const express = require("express");
-
 const emotionController = require("../controllers/emotions.controller");
 const authController = require("../controllers/auth.controller");
 
-// express router
 let router = express.Router();
 
 router
