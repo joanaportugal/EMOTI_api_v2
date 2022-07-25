@@ -109,10 +109,12 @@ exports.login = async (req, res) => {
         );
 
         if (user.typeUser === "Criança") {
+            console.log("entrou aqui");
             let today = new Date();
             let date = `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()}`;
             let time = `${today.getHours()}:${today.getMinutes()}`;
-            await User.findByIdAndUpdate(user.user_id, {
+
+            await User.findByIdAndUpdate(user._id, {
                 last_access: `${date} ${time}`
             }, {
                 returnOriginal: false,
