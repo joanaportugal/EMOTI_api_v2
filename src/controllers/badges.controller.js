@@ -62,8 +62,14 @@ exports.findAll = async (req, res) => {
         });
     }
     try {
+        let emotion = ""
+        if (req.query.emotion) {
+            emotion = await Emotion.find({
+                name: req.query.emotion
+            }).exec();
+        }
         let badges = await Badge.find(cleanEmptyObjectKeys({
-            emotion: req.query.emotion,
+            emotion: req.query.emotion ? emotion._id : "",
             name: req.query.title,
         })).select("-_id").exec();
         return res.status(200).json({

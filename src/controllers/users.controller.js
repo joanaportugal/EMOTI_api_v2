@@ -37,7 +37,7 @@ exports.register = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: `Utilizador ${user.username} criado!`,
-            url: `api/users/${user._id}`,
+            url: `/api/users/${user._id}`,
         });
     } catch (err) {
         if (err.name === "MongoServerError" && err.code === 11000) {
