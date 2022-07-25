@@ -1,7 +1,7 @@
 const express = require("express");
 
 const usersRoute = require("./users.routes");
-const authController = require("../controllers/auth.controller");
+const emotionsRoute = require("./emotions.routes");
 
 let router = express.Router();
 
@@ -19,6 +19,7 @@ router.use((req, res, next) => {
 });
 
 router.use("/users", usersRoute)
+router.use("/emotions", emotionsRoute)
 
 router.all("*", function (req, res) {
     res.status(404).json({
