@@ -1,66 +1,130 @@
-/* OLD PROJECT
 const db = require("../models/index");
 const Class = db.classes;
-const User = db.users;
 
-exports.findAll = async (req, res) => {
-  if (req.typeUser !== "Professor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to get class list!",
-    });
-  }
-
-  const classes = await Class.find({ teacher: req.username })
-    .select("-_id -teacher")
-    .exec();
-  return res.status(200).json({ success: true, classes });
-};
-
+// classes
 exports.createClass = async (req, res) => {
   if (req.typeUser !== "Professor") {
     return res.status(403).json({
       success: false,
-      error: "You don't have permission to create a class!",
+      error: "O seu tipo de utilizador não tem permissões para adicionar turmas!",
     });
   }
-
   try {
-    const repeatedClass = await Class.findOne({
+    const checkClass = await Class.findOne({
       name: req.body.className,
-      teacher: req.username,
+      teacher: req.userId,
     });
-    if (repeatedClass) {
+    if (checkClass) {
       return res.status(400).json({
         success: false,
-        error: "You already have a class with that name!",
+        error: "Já existe uma turma com esse nome na sua lista!",
       });
     }
     const newClass = new Class({
       name: req.body.className,
-      teacher: req.username,
+      teacher: req.userId,
     });
-    await newClass.save(); // save class in the database
+
+    await newClass.save();
     return res.status(201).json({
       success: true,
-      message: `Class ${newClass.name} created!`,
-      uri: `api/classes/${newClass.name}`,
+      message: `Turma ${newClass.name} criada!`,
+      URL: `/api/classes/${newClass._id}`,
     });
+
   } catch (err) {
     if (err.name === "ValidationError") {
       let errors = [];
       Object.keys(err.errors).forEach((key) => {
         errors.push(err.errors[key].message);
       });
-      return res.status(400).json({ success: false, error: errors });
-    } else {
-      return res.status(500).json({
+      return res.status(400).json({
         success: false,
-        error: err.message || "Some error occurred while creating the class.",
+        error: errors
       });
     }
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao criar a turma. Tente mais tarde!",
+    });
   }
-};
+}
+
+exports.findClasses = async (req, res) => {
+  if (req.typeUser !== "Professor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para listar turmas!",
+    });
+  }
+  try {
+    const classes = await Class.find({
+      teacher: req.userId
+    }).exec();
+
+    return res.status(200).json({
+      success: true,
+      classes
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao encontrar as turmas. Tente mais tarde!",
+    });
+  }
+}
+
+exports.updateClass = async (req, res) => {
+  if (req.typeUser !== "Professor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para atualizar turmas!",
+    });
+  }
+  try {
+    return res.status(200).send("OK")
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao atualizar a turma. Tente mais tarde!",
+    });
+  }
+}
+
+exports.deleteClass = async (req, res) => {
+  if (req.typeUser !== "Professor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para remover turmas!",
+    });
+  }
+  try {
+    // check if class exists
+    const classTeacher = await Class.find({
+      _id: req.params.class_id,
+      teacher: req.userId
+    }).exec();
+    if (!classTeacher) {
+      return res.status(404).json({
+        success: false,
+        error: `Não existe essa turma!`,
+      });
+    }
+
+    await Class.findByIdAndRemove(req.params.class_id).exec();
+    return res.status(200).json({
+      success: true,
+      message: `Turma ${req.params.className} apagada!`,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao apagar a turma. Tente mais tarde!",
+    });
+  }
+}
+
+/* OLD PROJECT
 
 exports.findChild = async (req, res) => {
   if (req.typeUser !== "Professor") {

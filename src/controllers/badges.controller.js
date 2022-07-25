@@ -79,7 +79,7 @@ exports.findAll = async (req, res) => {
     } catch (err) {
         return res.status(500).json({
             success: false,
-            error: err.message || `Tivemos problemas ao obter as emoções. Tente mais tarde!`,
+            error: err.message || `Tivemos problemas ao obter as badges. Tente mais tarde!`,
         });
     }
 }
@@ -92,15 +92,15 @@ exports.deleteOne = async (req, res) => {
         });
     }
     try {
-        const emotion = await Emotion.findById(req.params.badge_id).exec();
-        if (!emotion) {
+        const badge = await Badge.findById(req.params.badge_id).exec();
+        if (!badge) {
             return res.status(404).json({
                 success: false,
                 error: "Badge não encontrada!",
             });
         }
 
-        await Emotion.findByIdAndRemove(req.params.badge_id).exec();
+        await Badge.findByIdAndRemove(req.params.badge_id).exec();
         return res.status(200).json({
             success: true,
             message: "Badge apagada!"

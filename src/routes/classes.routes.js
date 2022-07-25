@@ -4,6 +4,9 @@ const authController = require("../controllers/auth.controller");
 
 let router = express.Router();
 
+router.route("/")
+  .post(authController.verifyToken)
+
 /* OLD PROJECT
 router
   .route("/")
