@@ -10,8 +10,8 @@ module.exports = (mongoose) => {
             required: [true, "Insira uma imagem!"]
         },
         emotion: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "emotions"
+            type: String,
+            required: [true, "Insira uma emoção!"]
         },
         pointsNeeded: {
             type: Number,

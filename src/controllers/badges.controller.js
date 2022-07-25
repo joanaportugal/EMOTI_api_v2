@@ -13,7 +13,7 @@ exports.create = async (req, res) => {
             error: "O seu tipo de utilizador não tem permissões para adicionar badges!",
         });
     }
-    const badge = new Badge(req.body);
+
     try {
         const emotion = await Emotion.find({
             name: req.body.emotion
@@ -24,7 +24,7 @@ exports.create = async (req, res) => {
                 error: `Emoção ${badge.emotion} não encontrada!`,
             });
         }
-        badge.emotion = emotion._id;
+        const badge = new Badge(req.body);
         await badge.save();
         return res.status(201).json({
             success: true,
@@ -35,7 +35,7 @@ exports.create = async (req, res) => {
         if (err.name === "MongoServerError" && err.code === 11000) {
             return res.status(422).json({
                 success: false,
-                error: `A badge ${badge.name} já existe!`,
+                error: `A badge já existe!`,
             });
         } else if (err.name === "ValidationError") {
             let errors = [];
@@ -62,16 +62,10 @@ exports.findAll = async (req, res) => {
         });
     }
     try {
-        let emotion = ""
-        if (req.query.emotion) {
-            emotion = await Emotion.find({
-                name: req.query.emotion
-            }).exec();
-        }
         let badges = await Badge.find(cleanEmptyObjectKeys({
-            emotion: req.query.emotion ? emotion._id : "",
+            emotion: req.query.emotion,
             name: req.query.title,
-        })).select("-_id").exec();
+        })).exec();
         return res.status(200).json({
             success: true,
             badges
