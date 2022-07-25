@@ -232,7 +232,7 @@ exports.findAll = async (req, res) => {
 }
 
 exports.findOne = async (req, res) => {
-    if (req.typeUser !== "Administrador") {
+    if (req.typeUser === "Administrador") {
         return res.status(403).json({
             success: false,
             error: "O seu tipo de utilizador não tem permissões para ver a informação dos uilizadores!",

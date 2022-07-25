@@ -29,7 +29,7 @@ router.route("/:user_id")
     .delete(authController.verifyToken, usersController.deleteOne);
 
 router.all("*", function (req, res) {
-    res.status(404).json({
+    return res.status(404).json({
         message: "Users: what???"
     });
 });
