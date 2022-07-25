@@ -21,7 +21,7 @@ exports.createClass = async (req, res) => {
       });
     }
     const newClass = new Class({
-      name: req.body.className,
+      name: req.body.name,
       teacher: req.userId,
     });
 
@@ -60,7 +60,7 @@ exports.findClasses = async (req, res) => {
   try {
     const classes = await Class.find({
       teacher: req.userId
-    }).exec();
+    }).select("-teacher").exec();
 
     return res.status(200).json({
       success: true,
@@ -81,9 +81,60 @@ exports.updateClass = async (req, res) => {
       error: "O seu tipo de utilizador não tem permissões para atualizar turmas!",
     });
   }
+
+  if (!req.body.newName) {
+    return res.status(403).json({
+      success: false,
+      error: "Indique o novo nome da turma!",
+    });
+  }
   try {
-    return res.status(200).send("OK")
+    // check if class exists
+    const classTeacher = await Class.find({
+      _id: req.params.class_id,
+      teacher: req.userId
+    }).exec();
+    if (!classTeacher) {
+      return res.status(404).json({
+        success: false,
+        error: `Não existe essa turma!`,
+      });
+    }
+
+    const checkClass = await Class.findOne({
+      name: req.body.newClass,
+      teacher: req.userId,
+    });
+    if (checkClass) {
+      return res.status(400).json({
+        success: false,
+        error: "Já existe uma turma com esse nome na sua lista!",
+      });
+    }
+
+    await Class.findByIdAndUpdate(req.params.class_id, {
+      name: req.body.newName
+    }, {
+      returnOriginal: false,
+      runValidators: true,
+      useFindAndModify: false
+    }).exec();
+    return res.status(200).json({
+      success: true,
+      message: "Turma atualizada!",
+    });
   } catch (error) {
+    if (err.name === "ValidationError") {
+      let errors = [];
+      Object.keys(err.errors).forEach((key) => {
+        errors.push(err.errors[key].message);
+      });
+      return res.status(400).json({
+        success: false,
+        error: errors
+      });
+    }
+
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao atualizar a turma. Tente mais tarde!",
@@ -114,7 +165,7 @@ exports.deleteClass = async (req, res) => {
     await Class.findByIdAndRemove(req.params.class_id).exec();
     return res.status(200).json({
       success: true,
-      message: `Turma ${req.params.className} apagada!`,
+      message: `Turma apagada!`,
     });
   } catch (error) {
     return res.status(500).json({

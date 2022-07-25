@@ -5,7 +5,12 @@ const authController = require("../controllers/auth.controller");
 let router = express.Router();
 
 router.route("/")
-  .post(authController.verifyToken)
+  .get(authController.verifyToken, classesController.findClasses)
+  .post(authController.verifyToken, classesController.createClass);
+
+router.route("/:class_id")
+  .patch(authController.verifyToken, classesController.updateClass)
+  .delete(authController.verifyToken, classesController.deleteClass);
 
 /* OLD PROJECT
 router

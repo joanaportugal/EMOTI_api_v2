@@ -17,7 +17,10 @@ module.exports = (mongoose) => {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "users"
             },
-            points: Number
+            points: {
+                type: Number,
+                default: 0
+            }
         }],
         statistics: Array
     }, {
