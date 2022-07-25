@@ -15,14 +15,16 @@ exports.create = async (req, res) => {
     }
     const badge = new Badge(req.body);
     try {
-        const emotion = await Emotion.findById(badge.emotion).exec();
+        const emotion = await Emotion.find({
+            name: req.body.emotion
+        }).exec();
         if (!emotion) {
             return res.status(404).json({
                 success: false,
                 error: `Emoção ${badge.emotion} não encontrada!`,
             });
         }
-
+        badge.emotion = emotion._id;
         await badge.save();
         return res.status(201).json({
             success: true,
