@@ -112,7 +112,7 @@ exports.login = async (req, res) => {
             let today = new Date();
             let date = `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()}`;
             let time = `${today.getHours()}:${today.getMinutes()}`;
-            await User.findByIdAndUpdate(req.params.user_id, {
+            await User.findByIdAndUpdate(user.user_id, {
                 last_access: `${date} ${time}`
             }, {
                 returnOriginal: false,

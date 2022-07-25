@@ -467,43 +467,6 @@ exports.getClassFromChild = async (req, res) => {
   return res.status(200).json({ success: true, class: classItem });
 };
 
-exports.removeClass = async (req, res) => {
-  if (req.typeUser !== "Professor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to remove a class!",
-    });
-  }
-
-  try {
-    // check if class exists
-    const classTeacher = await Class.findOne({
-      name: req.params.className,
-      teacher: req.username,
-    }).exec();
-    if (!classTeacher) {
-      return res.status(404).json({
-        success: false,
-        error: `Class ${req.params.className} not found on your classes!`,
-      });
-    }
-
-    await Class.findOneAndRemove({
-      name: req.params.className,
-      teacher: req.username,
-    }).exec();
-    return res.status(200).json({
-      success: true,
-      message: `Class ${req.params.className} deleted!`,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: `Some error occurred while deleting class!`,
-    });
-  }
-};
-
 exports.findAllStudents = async (req, res) => {
   if (req.typeUser !== "Professor") {
     return res.status(403).json({
