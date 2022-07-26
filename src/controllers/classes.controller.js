@@ -61,7 +61,17 @@ exports.findClasses = async (req, res) => {
   try {
     const classes = await Class.find({
       teacher: req.userId
-    }).select("-teacher").exec();
+    }).select("-teacher").populate({
+      path: "requests",
+      populate: {
+        path: "tutor",
+      }
+    }).populate({
+      path: "students",
+      populate: {
+        path: "tutor",
+      }
+    }).exec();
 
     return res.status(200).json({
       success: true,
@@ -71,8 +81,16 @@ exports.findClasses = async (req, res) => {
         return {
           _id: c._id,
           name: c.name,
-          requests: c.requests,
-          students: c.students,
+          requests: c.requests.map(r => ({
+            _id: r._id,
+            name: r.name,
+            tutor: r.tutor.name
+          })),
+          students: c.students.map(s => ({
+            _id: s._id,
+            name: s.name,
+            tutor: s.tutor.name
+          })),
           statistics: c.statistics,
           initials
         }
@@ -248,7 +266,7 @@ exports.createRequest = async (req, res) => {
   if (!req.body.username || !req.body.className) {
     return res.status(400).json({
       success: false,
-      error: "É necessário o username e className!",
+      error: "É necessário o username e a turma!",
     });
   }
 
@@ -348,7 +366,22 @@ exports.findRequests = async (req, res) => {
       });
     }
 
-    return res.status(200).send("OK")
+    const requests = await Class.find({
+        requests: {
+          $in: [req.params.user_id]
+        },
+      })
+      .select("name teacher -_id").populate("teacher", "username _id")
+      .exec();
+
+    return res.status(200).json({
+      success: true,
+      requests: requests.map(r => ({
+        name: r.name,
+        teacher: r.teacher.username,
+        teacherId: r.teacher._id
+      }))
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -364,7 +397,22 @@ exports.acceptRequest = async (req, res) => {
       error: "O seu tipo de utilizador não tem permissões para aceitar um pedido de turma!",
     });
   }
+  if (!req.body.teacherId || !req.body.className) {
+    return res.status(400).json({
+      success: false,
+      error: "É necessário o id do professor e a turma!",
+    });
+  }
   try {
+    // check tutor relations
+    const tutor = await User.findById(req.userId).exec();
+    if (!tutor.children.includes(req.params.user_id)) {
+      return res.status(400).json({
+        success: false,
+        error: `A criança não tem nenhuma vinculação com o seu utilizador!`,
+      });
+    }
+
     return res.status(200).send("OK")
   } catch (err) {
     return res.status(500).json({
@@ -381,7 +429,22 @@ exports.removeRequest = async (req, res) => {
       error: "O seu tipo de utilizador não tem permissões para recusar um pedido de turma!",
     });
   }
+  if (!req.body.teacherId || !req.body.className) {
+    return res.status(400).json({
+      success: false,
+      error: "É necessário o id do professor e a turma!",
+    });
+  }
+
   try {
+    // check tutor relations
+    const tutor = await User.findById(req.userId).exec();
+    if (!tutor.children.includes(req.params.user_id)) {
+      return res.status(400).json({
+        success: false,
+        error: `A criança não tem nenhuma vinculação com o seu utilizador!`,
+      });
+    }
     return res.status(200).send("OK")
   } catch (err) {
     return res.status(500).json({
@@ -392,49 +455,10 @@ exports.removeRequest = async (req, res) => {
 }
 
 /* OLD PROJECT
-exports.findRequest = async (req, res) => {
-  try {
-    // check tutor relations
-    const tutorUser = await User.findOne({ username: req.username }).exec();
-    if (!tutorUser.children.includes(req.params.usernameChild)) {
-      return res.status(400).json({
-        success: false,
-        error: `Child ${req.params.usernameChild} doesn't have a relation with you!`,
-      });
-    }
-
-    const requests = await Class.find({
-      requests: { $in: [req.params.usernameChild] },
-    })
-      .select("name teacher -_id")
-      .exec();
-    return res.status(200).json({ success: true, requests });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: `Some error occurred while providing class requests!`,
-    });
-  }
-};
 
 exports.acceptRequest = async (req, res) => {
 
-  if (!req.body.teacher || !req.body.className) {
-    return res.status(400).json({
-      success: false,
-      error: "Please provide teacher and className!",
-    });
-  }
-
   try {
-    // check tutor relations
-    const tutorUser = await User.findOne({ username: req.username }).exec();
-    if (!tutorUser.children.includes(req.params.usernameChild)) {
-      return res.status(400).json({
-        success: false,
-        error: `Child ${req.params.usernameChild} doesn't have a relation with you!`,
-      });
-    }
     // check if child has given class request
     const classRequest = await Class.findOne({
       name: req.body.className,
@@ -481,22 +505,7 @@ exports.acceptRequest = async (req, res) => {
 
 exports.removeRequest = async (req, res) => {
 
-  if (!req.body.teacher || !req.body.className) {
-    return res.status(400).json({
-      success: false,
-      error: "Please provide teacher and className!",
-    });
-  }
-
   try {
-    // check tutor relations
-    const tutorUser = await User.findOne({ username: req.username }).exec();
-    if (!tutorUser.children.includes(req.params.usernameChild)) {
-      return res.status(400).json({
-        success: false,
-        error: `Child ${req.params.usernameChild} doesn't have a relation with you!`,
-      });
-    }
     // check if child has given class request
     const classRequest = await Class.findOne({
       name: req.body.className,
