@@ -23,6 +23,9 @@ router
   .put(authController.verifyToken, classesController.acceptRequest)
   .delete(authController.verifyToken, classesController.removeRequest);
 
+router
+  .route("/children")
+  .get(authController.verifyToken, classesController.findAllStudents);
 /* OLD PROJECT
 
 router

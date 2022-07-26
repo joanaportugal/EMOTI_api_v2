@@ -67,7 +67,7 @@ exports.findClasses = async (req, res) => {
         path: "tutor",
       }
     }).populate({
-      path: "students",
+      path: "students.child",
       populate: {
         path: "tutor",
       }
@@ -86,10 +86,12 @@ exports.findClasses = async (req, res) => {
             name: r.name,
             tutor: r.tutor.name
           })),
-          students: c.students.map(s => ({
-            _id: s._id,
-            name: s.name,
-            tutor: s.tutor.name
+          students: c.students.map(({
+            child
+          }) => ({
+            _id: child._id,
+            name: child.name,
+            tutor: child.tutor.name
           })),
           statistics: c.statistics,
           initials
@@ -523,6 +525,35 @@ exports.removeRequest = async (req, res) => {
     });
   }
 }
+
+// students
+exports.findAllStudents = async (req, res) => {
+  if (req.typeUser !== "Professor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para ver os alunos!",
+    });
+  }
+  try {
+    // check if class exists
+    const classes = await Class.find({
+        teacher: req.userId,
+      })
+      .select("students -_id")
+      .exec();
+
+    const childList = classes.map(c => c)
+    return res.status(200).json({
+      success: true,
+      classes
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao obter os alunos. Tente mais tarde!",
+    });
+  }
+};
 
 /* OLD PROJECT
 
