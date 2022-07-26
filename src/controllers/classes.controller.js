@@ -413,7 +413,43 @@ exports.acceptRequest = async (req, res) => {
       });
     }
 
-    return res.status(200).send("OK")
+    // check if child has given class request
+    const classRequest = await Class.findOne({
+      name: req.body.className,
+      teacher: req.body.teacherId,
+      requests: {
+        $in: [req.params.user_id]
+      },
+    }).exec();
+
+    if (!classRequest) {
+      return res.status(400).json({
+        success: false,
+        error: "Pedido de turma não encontrado!",
+      });
+    }
+
+    // accept request
+    await Class.findByIdAndUpdate(classRequest._id, {
+      $pull: {
+        requests: req.params.user_id
+      },
+      $push: {
+        students: {
+          child: req.params.user_id
+        }
+      },
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: false, //runs update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
+
+
+    return res.status(200).json({
+      success: true,
+      message: `A criança agora faz parte da turma ${req.body.className}!`,
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -423,13 +459,13 @@ exports.acceptRequest = async (req, res) => {
 }
 
 exports.removeRequest = async (req, res) => {
-  if (req.typeUser !== "Tutor") {
+  if (req.typeUser !== "Tutor" && req.typeUser !== "Professor") {
     return res.status(403).json({
       success: false,
-      error: "O seu tipo de utilizador não tem permissões para recusar um pedido de turma!",
+      error: "O seu tipo de utilizador não tem permissões para apagar um pedido de turma!",
     });
   }
-  if (!req.body.teacherId || !req.body.className) {
+  if ((req.typeUser === "Tutor" && !req.body.teacherId) || !req.body.className) {
     return res.status(400).json({
       success: false,
       error: "É necessário o id do professor e a turma!",
@@ -438,14 +474,48 @@ exports.removeRequest = async (req, res) => {
 
   try {
     // check tutor relations
-    const tutor = await User.findById(req.userId).exec();
-    if (!tutor.children.includes(req.params.user_id)) {
+    if (req.typeUser === "Tutor") {
+      const tutor = await User.findById(req.userId).exec();
+      if (!tutor.children.includes(req.params.user_id)) {
+        return res.status(400).json({
+          success: false,
+          error: `A criança não tem nenhuma vinculação com o seu utilizador!`,
+        });
+      }
+    }
+
+
+    // check if child has given class request
+    const classRequest = await Class.findOne({
+      name: req.body.className,
+      teacherId: req.typeUser === "Tutor" ? req.body.teacherId : req.userId,
+      requests: {
+        $in: [req.params.user_id]
+      },
+    }).exec();
+
+    if (!classRequest) {
       return res.status(400).json({
         success: false,
-        error: `A criança não tem nenhuma vinculação com o seu utilizador!`,
+        error: "Pedido de turma não encontrado!",
       });
     }
-    return res.status(200).send("OK")
+
+    // delete request
+    await Class.findByIdAndUpdate(classRequest._id, {
+      $pull: {
+        requests: req.params.user_id
+      },
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: false, //runs update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
+
+    return res.status(200).json({
+      success: true,
+      message: "Pedido de turma apagado!",
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -455,123 +525,6 @@ exports.removeRequest = async (req, res) => {
 }
 
 /* OLD PROJECT
-
-exports.acceptRequest = async (req, res) => {
-
-  try {
-    // check if child has given class request
-    const classRequest = await Class.findOne({
-      name: req.body.className,
-      teacher: req.body.teacher,
-      requests: { $in: [req.params.usernameChild] },
-    }).exec();
-
-    if (!classRequest) {
-      return res.status(400).json({
-        success: false,
-        error: "Request not found!",
-      });
-    }
-
-    // accept request
-    await Class.findOneAndUpdate(
-      {
-        name: req.body.className,
-        teacher: req.body.teacher,
-        requests: { $in: [req.params.usernameChild] },
-      },
-      {
-        $pull: { requests: req.params.usernameChild },
-        $push: { students: req.params.usernameChild },
-      },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
-
-    return res.status(200).json({
-      success: true,
-      message: `User ${req.params.usernameChild} is now a student on ${req.body.className}`,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: `Some error occurred while accepting class request!`,
-    });
-  }
-};
-
-exports.removeRequest = async (req, res) => {
-
-  try {
-    // check if child has given class request
-    const classRequest = await Class.findOne({
-      name: req.body.className,
-      teacher: req.body.teacher,
-      requests: { $in: [req.params.usernameChild] },
-    }).exec();
-
-    if (!classRequest) {
-      return res.status(400).json({
-        success: false,
-        error: "Request not found!",
-      });
-    }
-
-    // decline request
-    await Class.findOneAndUpdate(
-      {
-        name: req.body.className,
-        teacher: req.body.teacher,
-        requests: { $in: [req.params.usernameChild] },
-      },
-      {
-        $pull: { requests: req.params.usernameChild },
-      },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
-
-    return res.status(200).json({
-      success: true,
-      message: "Class request declined!",
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: `Some error occurred while accepting class request!`,
-    });
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 exports.getClassFromChild = async (req, res) => {
   if (req.typeUser !== "Tutor") {

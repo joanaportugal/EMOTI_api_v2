@@ -13,6 +13,7 @@ module.exports = (mongoose) => {
             ref: "users"
         }],
         students: [{
+            _id: false,
             child: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "users"
