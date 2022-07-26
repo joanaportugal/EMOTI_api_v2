@@ -26,12 +26,8 @@ router
 router
   .route("/children")
   .get(authController.verifyToken, classesController.findAllStudents);
+
 /* OLD PROJECT
-
-router
-  .route("/children")
-  .get(authController.verifyToken, classesController.findAllStudents);
-
 router
   .route("/children/:usernameChild")
   .get(authController.verifyToken, classesController.getClassFromChild);

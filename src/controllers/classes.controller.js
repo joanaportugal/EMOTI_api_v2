@@ -77,7 +77,9 @@ exports.findClasses = async (req, res) => {
       success: true,
       classes: classes.map(c => {
         let nameparts = c.name.split(" ");
-        let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
+        let initials = nameparts.length >= 2 ?
+          nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase() :
+          nameparts[0].charAt(0).toUpperCase();
         return {
           _id: c._id,
           name: c.name,
@@ -535,18 +537,38 @@ exports.findAllStudents = async (req, res) => {
     });
   }
   try {
-    // check if class exists
-    const classes = await Class.find({
-        teacher: req.userId,
-      })
-      .select("students -_id")
-      .exec();
+    const list = await Class.find({
+      teacher: req.userId,
+      students: {
+        $exists: true,
+        $ne: []
+      }, // students list is not empty
+    }).select("name students").populate({
+      path: "students.child",
+      populate: {
+        path: "tutor",
+      }
+    }).exec();
 
-    const childList = classes.map(c => c)
+    let students = [];
+
+    for (const item of list) {
+      for (const student of item.students) {
+        const child = student.child;
+        students.push({
+          class: item.name,
+          name: child.name,
+          email: child.email,
+          tutor: child.tutor.name
+        })
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      classes
+      students
     });
+
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -582,39 +604,12 @@ exports.getClassFromChild = async (req, res) => {
   return res.status(200).json({ success: true, class: classItem });
 };
 
-exports.findAllStudents = async (req, res) => {
-  if (req.typeUser !== "Professor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to get students from a class!",
-    });
-  }
-  try {
-    // check if class exists
-    const classes = await Class.find({
-      teacher: req.username,
-      students: { $exists: true, $ne: [] }, // students list is not empty
-    })
-      .select("name students -_id")
-      .exec();
 
-    let studentsList = classes.map((c) => c.students[0]);
 
-    const children = await User.find({
-      username: { $in: studentsList },
-    })
-      .select("username name tutor points -_id")
-      .exec();
 
-    const list = classes.map((c) => ({ name: c.name, students: children }));
-    return res.status(200).json({ success: true, list });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: `Some error occurred while retrieving class students!`,
-    });
-  }
-};
+
+
+
 
 exports.removeStudent = async (req, res) => {
   if (req.typeUser !== "Professor" && req.typeUser !== "Tutor") {
@@ -670,6 +665,13 @@ exports.removeStudent = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
 
 exports.alterStudentClass = async (req, res) => {
   if (req.typeUser !== "Professor") {
