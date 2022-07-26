@@ -96,7 +96,7 @@ exports.findClasses = async (req, res) => {
         }
       })
     });
-  } catch (error) {
+  } catch (err) {
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao encontrar as turmas. Tente mais tarde!",
