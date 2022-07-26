@@ -22,7 +22,7 @@ exports.createClass = async (req, res) => {
       });
     }
     const newClass = new Class({
-      name: req.body.name,
+      name: req.body.className,
       teacher: req.userId,
     });
 
@@ -332,7 +332,22 @@ exports.createRequest = async (req, res) => {
 };
 
 exports.findRequests = async (req, res) => {
+  if (req.typeUser !== "Tutor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para ver os pedidos de turma!",
+    });
+  }
   try {
+    // check tutor relations
+    const tutor = await User.findById(req.userId).exec();
+    if (!tutor.children.includes(req.params.user_id)) {
+      return res.status(400).json({
+        success: false,
+        error: `A criança não tem nenhuma vinculação com o seu utilizador!`,
+      });
+    }
+
     return res.status(200).send("OK")
   } catch (err) {
     return res.status(500).json({
@@ -343,6 +358,12 @@ exports.findRequests = async (req, res) => {
 }
 
 exports.acceptRequest = async (req, res) => {
+  if (req.typeUser !== "Tutor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para aceitar um pedido de turma!",
+    });
+  }
   try {
     return res.status(200).send("OK")
   } catch (err) {
@@ -354,6 +375,12 @@ exports.acceptRequest = async (req, res) => {
 }
 
 exports.removeRequest = async (req, res) => {
+  if (req.typeUser !== "Tutor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para recusar um pedido de turma!",
+    });
+  }
   try {
     return res.status(200).send("OK")
   } catch (err) {
@@ -366,12 +393,6 @@ exports.removeRequest = async (req, res) => {
 
 /* OLD PROJECT
 exports.findRequest = async (req, res) => {
-  if (req.typeUser !== "Tutor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to get class requests!",
-    });
-  }
   try {
     // check tutor relations
     const tutorUser = await User.findOne({ username: req.username }).exec();
@@ -397,12 +418,6 @@ exports.findRequest = async (req, res) => {
 };
 
 exports.acceptRequest = async (req, res) => {
-  if (req.typeUser !== "Tutor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to accept class requests!",
-    });
-  }
 
   if (!req.body.teacher || !req.body.className) {
     return res.status(400).json({
@@ -465,12 +480,6 @@ exports.acceptRequest = async (req, res) => {
 };
 
 exports.removeRequest = async (req, res) => {
-  if (req.typeUser !== "Tutor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to decline class requests!",
-    });
-  }
 
   if (!req.body.teacher || !req.body.className) {
     return res.status(400).json({
@@ -530,6 +539,30 @@ exports.removeRequest = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 exports.getClassFromChild = async (req, res) => {
   if (req.typeUser !== "Tutor") {
