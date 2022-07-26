@@ -1,5 +1,6 @@
 const db = require("../models/index");
 const Class = db.classes;
+const User = db.users;
 
 // classes
 exports.createClass = async (req, res) => {
@@ -64,7 +65,18 @@ exports.findClasses = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      classes
+      classes: classes.map(c => {
+        let nameparts = c.name.split(" ");
+        let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
+        return {
+          _id: c._id,
+          name: c.name,
+          requests: c.requests,
+          students: c.students,
+          statistics: c.statistics,
+          initials
+        }
+      })
     });
   } catch (error) {
     return res.status(500).json({
@@ -175,158 +187,184 @@ exports.deleteClass = async (req, res) => {
   }
 }
 
-/* OLD PROJECT
-
+// requests
 exports.findChild = async (req, res) => {
   if (req.typeUser !== "Professor") {
     return res.status(403).json({
       success: false,
-      error: "You don't have permission to search for a child!",
+      error: "O seu tipo de utilizador não tem permissões para procurar uma criança!",
     });
   }
 
-  if (!req.query.usernameChild) {
+  if (!req.query.username) {
     return res
       .status(400)
-      .json({ success: false, error: "Please provide usernameChild on query" });
+      .json({
+        success: false,
+        error: "É necessário o username!"
+      });
   }
 
   try {
-    // finding child
-    const childUser = await User.findOne({
-      username: req.query.usernameChild,
-    })
-      .select("name tutor typeUser -_id")
+    const child = await User.findOne({
+        username: req.query.username,
+        typeUser: "Criança",
+      })
+      .select("name tutor-_id")
+      .populate("tutor", "username")
       .exec();
-    if (!childUser) {
+
+    if (!child) {
       return res.status(404).json({
         success: false,
-        error: `Child ${req.query.usernameChild} not found!`,
-      });
-    } else if (childUser.typeUser !== "Criança") {
-      return res.status(400).json({
-        success: false,
-        error: `User ${req.query.usernameChild} is not a child!`,
+        error: `Criança ${req.query.username} não encontrada!`,
       });
     }
 
     return res.status(200).json({
       success: true,
       child: {
-        name: childUser.name,
-        tutor: childUser.tutor,
+        _id: child._id,
+        name: child.name,
+        tutor: child.tutor.username
       },
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: `Some error occurred while finding child ${req.body.usernameChild}!`,
+      error: err.message || "Tivemos problemas ao encontrar a criança. Tente mais tarde!",
     });
   }
-};
+}
 
 exports.createRequest = async (req, res) => {
   if (req.typeUser !== "Professor") {
     return res.status(403).json({
       success: false,
-      error: "You don't have permission to create a class request!",
+      error: "O seu tipo de utilizador não tem permissões para criar um pedido de turma!",
     });
   }
 
-  if (!req.body.usernameChild || !req.body.className) {
+  if (!req.body.username || !req.body.className) {
     return res.status(400).json({
       success: false,
-      error: "Please provide usernameChild and className",
+      error: "É necessário o username e className!",
     });
   }
+
   try {
     // finding child and class
     const childUser = await User.findOne({
-      username: req.body.usernameChild,
+      username: req.body.username,
+      typeUser: "Criança",
     }).exec();
     const classTeacher = await Class.findOne({
       name: req.body.className,
-      teacher: req.username,
+      teacher: req.userId,
     }).exec();
 
     // validations (in case user didn't searched child first)
     if (!childUser) {
       return res.status(404).json({
         success: false,
-        error: `Child ${req.body.usernameChild} not found!`,
-      });
-    } else if (childUser.typeUser !== "Criança") {
-      return res.status(400).json({
-        success: false,
-        error: `User ${req.body.usernameChild} is not a child!`,
+        error: `Criança ${req.body.username} não encontrada!`,
       });
     } else if (!classTeacher) {
       return res.status(404).json({
         success: false,
-        error: `Class ${req.body.className} not found!`,
+        error: `Turma ${req.body.className} não encontrada!`,
+      });
+    }
+    // validate if child is already on that students or requests of given class
+    if (classTeacher.requests.includes(childUser._id)) {
+      return res.status(400).json({
+        success: false,
+        error: `Criança ${req.body.username} já está nos pedidos de turma!`,
+      });
+    } else if (classTeacher.students.includes(childUser._id)) {
+      return res.status(400).json({
+        success: false,
+        error: `Criança ${req.body.username} is already on students!`,
       });
     }
 
-    const allClasses = await Class.find().select("-_id").exec();
-    // validate if child is already a student on any class or requests
-    // - given class
-    if (classTeacher.requests.includes(req.body.usernameChild)) {
-      return res.status(400).json({
-        success: false,
-        error: `User ${req.body.usernameChild} is already on requests!`,
-      });
-    } else if (classTeacher.students.includes(req.body.usernameChild)) {
-      return res.status(400).json({
-        success: false,
-        error: `User ${req.body.usernameChild} is already on students!`,
-      });
-    }
-    // - logged user other class
+    const teacherClasses = await Class.find({
+      teacher: req.userId
+    }).exec();
     if (
-      allClasses.find(
+      teacherClasses.find(
         (c) =>
-          c.teacher === req.username &&
-          (c.requests.includes(req.body.usernameChild) ||
-            c.students.includes(req.body.usernameChild))
+        (c.requests.includes(childUser._id) ||
+          c.students.includes(childUser._id))
       )
     ) {
       return res.status(400).json({
         success: false,
-        error: `User ${req.body.usernameChild} is already on one of your classes!`,
-      });
-    }
-    // - other teacher class
-    if (allClasses.find((c) => c.students.includes(req.body.usernameChild))) {
-      return res.status(400).json({
-        success: false,
-        error: `User ${req.body.usernameChild} is already on someone else class!`,
+        error: `A criança ${req.body.username} já está associada a uma das suas turmas!`,
       });
     }
 
-    // update requests
-    await Class.findOneAndUpdate(
-      { name: req.body.className, teacher: req.username },
-      { $push: { requests: req.body.usernameChild } },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
+    await Class.findOneAndUpdate({
+      name: req.body.className,
+      teacher: req.userId
+    }, {
+      $push: {
+        requests: childUser._id
       }
-    ).exec();
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: false, //runs update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
 
     return res.status(201).json({
       success: true,
-      message: "Class request created!",
-      uri: `api/classes/requests/${childUser.username}`,
+      message: "Pedido de turma criado!",
+      URL: `/api/classes/requests/${childUser._id}`,
     });
+
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: `Some error occurred while creating a class request!`,
+      error: err.message || "Tivemos problemas ao criar o pedido. Tente mais tarde!",
     });
   }
 };
 
+exports.findRequests = async (req, res) => {
+  try {
+    return res.status(200).send("OK")
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao encontrar os pedidos. Tente mais tarde!",
+    });
+  }
+}
+
+exports.acceptRequest = async (req, res) => {
+  try {
+    return res.status(200).send("OK")
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao aceitar o pedido. Tente mais tarde!",
+    });
+  }
+}
+
+exports.removeRequest = async (req, res) => {
+  try {
+    return res.status(200).send("OK")
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao apagar o pedido. Tente mais tarde!",
+    });
+  }
+}
+
+/* OLD PROJECT
 exports.findRequest = async (req, res) => {
   if (req.typeUser !== "Tutor") {
     return res.status(403).json({

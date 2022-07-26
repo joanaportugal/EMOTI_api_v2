@@ -437,6 +437,11 @@ exports.createRelation = async (req, res) => {
                 success: false,
                 error: `Já tem uma relação com a criança ${req.body.username}!`,
             });
+        } else if (childUser.tutor) {
+            return res.status(400).json({
+                success: false,
+                error: `A criança ${req.body.username} já tem um tutor!`,
+            });
         }
         // validate child password
         const check = bcrypt.compareSync(req.body.password, childUser.password);
@@ -451,6 +456,14 @@ exports.createRelation = async (req, res) => {
             $push: {
                 children: childUser._id
             }
+        }, {
+            returnOriginal: false, // to return the updated document
+            runValidators: false, //runs update validators on update command
+            useFindAndModify: false, //remove deprecation warning
+        }).exec();
+
+        await User.findByIdAndUpdate(childUser._id, {
+            tutor: req.userId
         }, {
             returnOriginal: false, // to return the updated document
             runValidators: false, //runs update validators on update command

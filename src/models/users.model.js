@@ -47,6 +47,10 @@ module.exports = (mongoose) => {
             type: Boolean,
             default: false
         },
+        tutor: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "users"
+        },
         children: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: "users"

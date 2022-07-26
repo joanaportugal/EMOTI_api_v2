@@ -12,22 +12,18 @@ router.route("/:class_id")
   .patch(authController.verifyToken, classesController.updateClass)
   .delete(authController.verifyToken, classesController.deleteClass);
 
-/* OLD PROJECT
-router
-  .route("/")
-  .get(authController.verifyToken, classesController.findAll)
-  .post(authController.verifyToken, classesController.createClass);
-
 router
   .route("/requests")
   .get(authController.verifyToken, classesController.findChild)
   .post(authController.verifyToken, classesController.createRequest);
 
 router
-  .route("/requests/:usernameChild")
-  .get(authController.verifyToken, classesController.findRequest)
+  .route("/requests/:user_id")
+  .get(authController.verifyToken, classesController.findRequests)
   .put(authController.verifyToken, classesController.acceptRequest)
   .delete(authController.verifyToken, classesController.removeRequest);
+
+/* OLD PROJECT
 
 router
   .route("/children")
@@ -36,10 +32,6 @@ router
 router
   .route("/children/:usernameChild")
   .get(authController.verifyToken, classesController.getClassFromChild);
-
-router
-  .route("/:className")
-  .delete(authController.verifyToken, classesController.removeClass);
 
 router
   .route("/:className/children/:usernameChild")
