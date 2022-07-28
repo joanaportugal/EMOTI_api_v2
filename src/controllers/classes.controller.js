@@ -566,6 +566,7 @@ exports.findAllStudents = async (req, res) => {
         students.push({
           class: item.name,
           name: child.name,
+          imgProfile: child.imgProfile,
           email: child.email,
           tutor: child.tutor.name
         })
