@@ -297,32 +297,40 @@ exports.createRequest = async (req, res) => {
         error: `Turma ${req.body.className} não encontrada!`,
       });
     }
+
+    const childIsInRequests = await Class.find({
+      _id: classTeacher._id,
+      requests: childUser._id
+    }).exec();
+    const childIsInStudents = await Class.find({
+      _id: classTeacher._id,
+      "students.child": childUser._id
+    }).exec();
     // validate if child is already on that students or requests of given class
-    if (classTeacher.requests.includes(childUser._id)) {
+    if (!childIsInRequests) {
       return res.status(400).json({
         success: false,
         error: `Criança ${req.body.username} já está nos pedidos de turma!`,
       });
-    } else if (classTeacher.students.includes(childUser._id)) {
+    } else if (!childIsInStudents) {
       return res.status(400).json({
         success: false,
-        error: `Criança ${req.body.username} is already on students!`,
+        error: `Criança ${req.body.username} já é um aluno!`,
       });
     }
 
-    const teacherClasses = await Class.find({
-      teacher: req.userId
+    const childAssociatedToTeacher = await Class.findOne({
+      teacher: req.userId,
+      $or: [{
+        requests: childUser._id
+      }, {
+        "students.child": childUser._id
+      }],
     }).exec();
-    if (
-      teacherClasses.find(
-        (c) =>
-        (c.requests.includes(childUser._id) ||
-          c.students.includes(childUser._id))
-      )
-    ) {
+    if (childAssociatedToTeacher) {
       return res.status(400).json({
         success: false,
-        error: `A criança ${req.body.username} já está associada a uma das suas turmas!`,
+        error: `A criança já está associada a uma das suas turmas!`,
       });
     }
 
@@ -566,7 +574,7 @@ exports.findAllStudents = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      students
+      students: students.sort((a, b) => a.name < b.name)
     });
 
   } catch (err) {
@@ -575,185 +583,196 @@ exports.findAllStudents = async (req, res) => {
       error: err.message || "Tivemos problemas ao obter os alunos. Tente mais tarde!",
     });
   }
-};
+}
 
-/* OLD PROJECT
-
-exports.getClassFromChild = async (req, res) => {
+exports.findChildClasses = async (req, res) => {
   if (req.typeUser !== "Tutor") {
     return res.status(403).json({
       success: false,
-      error: "You don't have permission to get child's class!",
-    });
-  }
-
-  const user = await User.findOne({ username: req.username }).exec();
-  if (!user.children.includes(req.params.usernameChild)) {
-    return res.status(404).json({
-      success: false,
-      error: `Child ${req.params.usernameChild} not found on your relations!`,
-    });
-  }
-
-  const classItem = await Class.find({
-    students: req.params.usernameChild,
-  })
-    .select("name teacher -_id")
-    .exec();
-
-  return res.status(200).json({ success: true, class: classItem });
-};
-
-
-
-
-
-
-
-
-exports.removeStudent = async (req, res) => {
-  if (req.typeUser !== "Professor" && req.typeUser !== "Tutor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to remove students from a class!",
+      error: "O seu tipo de utilizador não tem permissões para ver as turmas da criança!",
     });
   }
   try {
-    // check if class exists
-    const classTeacher = await Class.findOne({
-      name: req.params.className,
-      teacher: req.typeUser === "Professor" ? req.username : req.body.teacher,
-    }).exec();
-    if (!classTeacher) {
-      return res.status(404).json({
-        success: false,
-        error: `Class ${req.params.className} not found on your classes!`,
-      });
-    }
-    // check if student exists on that class
-    if (!classTeacher.students.includes(req.params.usernameChild)) {
-      return res.status(404).json({
-        success: false,
-        error: `Class ${req.params.className} doesn't have child ${req.params.usernameChild}!`,
-      });
-    }
+    const user = await User.findById(req.userId).exec();
 
-    // remove student
-    await Class.findOneAndUpdate(
-      {
-        name: req.params.className,
-        teacher: req.typeUser === "Professor" ? req.username : req.body.teacher,
-      },
-      {
-        $pull: { students: req.params.usernameChild },
-      },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
+    if (!user.children.includes(req.params.user_id)) {
+      return res.status(404).json({
+        success: false,
+        error: `A criança não está associada ao seu utilizador!`,
+      });
+    }
+    const classesItem = await Class.find({
+        "students.child": req.params.user_id,
+      })
+      .select("name teacher")
+      .populate("teacher", "name")
+      .exec();
 
     return res.status(200).json({
       success: true,
-      message: `Child ${req.params.usernameChild} removed from class ${req.params.className}`,
+      class: classesItem.map(c => ({
+        _id: c._id,
+        name: c.name,
+        teacher: c.teacher.name,
+        teacherId: c.teacher._id
+      }))
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: `Some error occurred while removing student from class!`,
+      error: err.message || "Tivemos problemas ao obter as turmas da criança. Tente mais tarde!",
     });
   }
-};
+}
 
-
-
-
-
-
-
-
-exports.alterStudentClass = async (req, res) => {
+exports.updateChildClass = async (req, res) => {
   if (req.typeUser !== "Professor") {
     return res.status(403).json({
       success: false,
-      error: "You don't have permission to edit students' class!",
+      error: "O seu tipo de utilizador não tem permissões para editar a turma da criança!",
     });
   }
+
   if (!req.body.newClass) {
     return res.status(404).json({
       success: false,
-      error: "Please provide newClass!",
+      error: "É preciso o nome da nova turma!",
     });
   }
   try {
     // check if classes exist
     const classTeacher = await Class.findOne({
-      name: req.params.className,
-      teacher: req.username,
+      _id: req.params.class_id,
+      teacher: req.userId,
     }).exec();
     const newClass = await Class.findOne({
       name: req.body.newClass,
-      teacher: req.username,
+      teacher: req.userId,
     }).exec();
     if (!classTeacher) {
       return res.status(404).json({
         success: false,
-        error: `Class ${req.params.className} not found on your classes!`,
+        error: `A antiga turma não está nas suas turmas!`,
       });
     } else if (!newClass) {
       return res.status(404).json({
         success: false,
-        error: `Class ${req.body.newClass} not found on your classes!`,
+        error: `A nova turma não está nas suas turmas!`,
       });
     }
+
     // check if student exists on that class
-    if (!classTeacher.students.includes(req.params.usernameChild)) {
+    const classItem = await Class.findOne({
+      _id: classTeacher._id,
+      "students.child": req.params.user_id,
+    }).exec();
+
+    if (!classItem) {
       return res.status(404).json({
         success: false,
-        error: `Class ${req.params.className} doesn't have child ${req.params.usernameChild}!`,
+        error: "Essa criança não pertence a essa turma!",
       });
     }
 
     // update classes
-    await Class.findOneAndUpdate(
-      {
-        name: req.params.className,
-        teacher: req.username,
+    await Class.findByIdAndUpdate(classTeacher._id, {
+      $pull: {
+        "students": {
+          child: req.params.user_id
+        }
       },
-      {
-        $pull: { students: req.params.usernameChild },
-      },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: false, //runs update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
 
-    await Class.findOneAndUpdate(
-      {
-        name: req.body.newClass,
-        teacher: req.username,
-      },
-      {
-        $push: { students: req.params.usernameChild },
-      },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
+    await Class.findByIdAndUpdate(newClass._id, {
+      $push: {
+        students: {
+          child: req.params.user_id
+        }
       }
-    ).exec();
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: false, //runs update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
 
     return res.status(200).json({
       success: true,
-      message: `Child ${req.params.usernameChild} is now on class ${req.body.newClass}`,
+      message: `A turma da criança foi atualizada!`,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: `Some error occurred while updating student's class!`,
+      error: err.message || "Tivemos problemas ao remover a turma da criança. Tente mais tarde!",
     });
   }
-}; */
+}
+
+exports.removeChildClass = async (req, res) => {
+  if (req.typeUser !== "Professor" && req.typeUser !== "Tutor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para remover uma turma da criança!",
+    });
+  }
+  try {
+    if (req.typeUser === "Tutor") {
+      const user = await User.findById(req.userId).exec();
+
+      if (!user.children.includes(req.params.user_id)) {
+        return res.status(404).json({
+          success: false,
+          error: `A criança não está associada ao seu utilizador!`,
+        });
+      }
+    }
+    // check if class exists
+    const classTeacher = await Class.findOne({
+      _id: req.params.class_id,
+      teacher: req.typeUser === "Professor" ? req.userId : req.body.teacherId,
+    }).exec();
+    if (!classTeacher) {
+      return res.status(404).json({
+        success: false,
+        error: `A turma não foi encontrada!`,
+      });
+    }
+
+    const classesItem = await Class.find({
+        _id: classTeacher._id,
+        "students.child": req.params.user_id,
+      })
+      .exec();
+
+    // check if student exists on that class
+    if (!classesItem) {
+      return res.status(404).json({
+        success: false,
+        error: "A turma não tem essa criança!",
+      });
+    }
+
+    // remove student
+    await Class.findByIdAndUpdate(classTeacher._id, {
+      $pull: {
+        "students": {
+          child: req.params.user_id
+        }
+      },
+    }).exec();
+
+    return res.status(200).json({
+      success: true,
+      message: "A criança foi removida da turma!",
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao remover a turma da criança. Tente mais tarde!",
+    });
+  }
+}

@@ -27,16 +27,14 @@ router
   .route("/children")
   .get(authController.verifyToken, classesController.findAllStudents);
 
-/* OLD PROJECT
 router
-  .route("/children/:usernameChild")
-  .get(authController.verifyToken, classesController.getClassFromChild);
+  .route("/children/:user_id")
+  .get(authController.verifyToken, classesController.findChildClasses);
 
 router
-  .route("/:className/children/:usernameChild")
-  .put(authController.verifyToken, classesController.alterStudentClass)
-  .delete(authController.verifyToken, classesController.removeStudent);
-   */
+  .route("/:class_id/children/:user_id")
+  .put(authController.verifyToken, classesController.updateChildClass)
+  .delete(authController.verifyToken, classesController.removeChildClass);
 
 router.all("*", function (req, res) {
   return res.status(404).json({
