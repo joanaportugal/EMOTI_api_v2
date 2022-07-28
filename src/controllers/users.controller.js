@@ -496,7 +496,7 @@ exports.findRelations = async (req, res) => {
             _id: {
                 $in: user.children
             }
-        }).select("name").exec();
+        }).exec();
 
         return res.status(200).json({
             success: true,
