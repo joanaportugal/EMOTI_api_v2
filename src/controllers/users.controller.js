@@ -504,7 +504,11 @@ exports.findRelations = async (req, res) => {
                 let nameparts = child.name.split(" ");
                 let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
                 return {
-                    ...child,
+                    _id: child._id,
+                    name: child.name,
+                    imgProfile: child.imgProfile,
+                    username: child.username,
+                    email: child.email,
                     initials
                 }
             })
