@@ -6,8 +6,8 @@ const authController = require("../controllers/auth.controller");
 let router = express.Router();
 
 router.route("/")
-  .get(authController.verifyToken, activitiesController.createOne)
-  .post(authController.verifyToken, activitiesController.findAll);
+  .get(authController.verifyToken, activitiesController.findAll)
+  .post(authController.verifyToken, activitiesController.createOne);
 
 router
   .route("/:activity_id")

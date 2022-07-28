@@ -564,6 +564,7 @@ exports.findAllStudents = async (req, res) => {
       for (const student of item.students) {
         const child = student.child;
         students.push({
+          _id: child._id,
           class: item.name,
           name: child.name,
           imgProfile: child.imgProfile,

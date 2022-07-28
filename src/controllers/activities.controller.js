@@ -1,13 +1,71 @@
 const db = require("../models");
 const Activity = db.activities;
+const Emotion = db.emotions;
 const {
-  cleanEmptyObjectKeys
+  cleanEmptyObjectKeys,
+  shuffleArray
 } = require("../helpers");
 
 exports.createOne = async (req, res) => {
+  if (req.typeUser === "Criança") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para adicionar atividades!",
+    });
+  }
+  const activity = new Activity({
+    ...req.body,
+    public: req.typeUser === "Administrador",
+    approved: req.typeUser === "Administrador",
+    author: req.userId,
+    category: req.body.category ||
+      (req.typeUser === "Administrador" ? "Quiz" :
+        req.typeUser === "Tutor" ? "Atividades Personalizadas (Tutor)" : "Atividades Personalizadas (Professor)")
+  });
   try {
-    return res.status(200).send("OK")
+    const allEmotions = await Emotion.find().exec();
+    const emotions = [];
+    for (const emotion of allEmotions) {
+      emotions.push(emotion.name)
+    }
+
+    for (const question of activity.questions) {
+      const emotion = await Emotion.findOne({
+        name: question.correctAnswer,
+      }).exec();
+      if (!emotion) {
+        return res.status(404).json({
+          success: false,
+          error: `Não foi possível encontrar a emoção ${question.correctAnswer}!`,
+        });
+      }
+      question.options = shuffleArray([question.correctAnswer, ...shuffleArray(emotions.filter(e => e !== question.correctAnswer).slice(0, 3))])
+
+    }
+
+    await activity.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Nova atividade criada!",
+      URL: `/activities/${activity._id}`,
+    });
   } catch (err) {
+    if (err.name === "MongoServerError" && err.code === 11000) {
+      return res.status(422).json({
+        success: false,
+        error: `Já existe uma atividade com o nome ${req.body.title}!`,
+      });
+    } else if (err.name === "ValidationError") {
+      let errors = [];
+      Object.keys(err.errors).forEach((key) => {
+        errors.push(err.errors[key].message);
+      });
+      return res.status(400).json({
+        success: false,
+        error: errors
+      });
+    }
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao criar a atividade. Tente mais tarde!",
@@ -85,81 +143,6 @@ exports.suggestActivity = async (req, res) => {
 const User = db.users;
 const Class = db.classes;
 const Emotion = db.emotions;
-
-exports.create = async (req, res) => {
-  if (req.typeUser === "Criança") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to create activities!",
-    });
-  }
-
-  const activity = new Activity({
-    title: req.body.title,
-    level: req.body.level,
-    questions: req.body.questions,
-    caseIMG: req.body.caseIMG,
-    description: req.body.description,
-    category: req.body.category,
-    author: req.username,
-  });
-  try {
-    for (const question of activity.questions) {
-      const emotion = await Emotion.findOne({
-        name: question.correctAnswer,
-      }).exec();
-      if (!emotion) {
-        return res.status(404).json({
-          success: false,
-          error: `Cannot find any emotion with name ${question.correctAnswer}!`,
-        });
-      }
-    }
-    const emotions = await Emotion.find().select("name -_id").exec();
-    let list = emotions.map((e) => e.name);
-    // add emotions on question answers
-    activity.questions = activity.questions.map((question) => ({
-      ...question,
-      answers: list,
-    }));
-    await activity.save(); // save document in the activities DB collection
-    // add to tutor/teacher
-    if (req.typeUser !== "Admin") {
-      await User.findOneAndUpdate(
-        { username: req.username },
-        { $push: { activitiesPersonalized: activity.title } },
-        {
-          returnOriginal: false, // to return the updated document
-          runValidators: false, //runs update validators on update command
-          useFindAndModify: false, //remove deprecation warning
-        }
-      ).exec();
-    }
-    return res.status(201).json({
-      success: true,
-      message: "New activity was created!",
-      URL: `/activities/${activity.title}`,
-    });
-  } catch (err) {
-    // capture mongoose validation errors
-    if (err.name === "MongoServerError" && err.code === 11000) {
-      return res.status(422).json({
-        success: false,
-        error: `The activity with name ${req.body.title} already exists!`,
-      });
-    } else if (err.name === "ValidationError") {
-      let errors = [];
-      Object.keys(err.errors).forEach((key) => {
-        errors.push(err.errors[key].message);
-      });
-      return res.status(400).json({ success: false, error: errors });
-    }
-    return res.status(500).json({
-      success: false,
-      error: err.message || "Some error occurred while creating the activity.",
-    });
-  }
-};
 
 exports.findAll = async (req, res) => {
   let queries = {

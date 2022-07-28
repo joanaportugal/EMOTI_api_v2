@@ -6,8 +6,8 @@ module.exports = (mongoose) => {
             unique: true,
         },
         author: {
-            type: String,
-            required: true
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "users"
         },
         level: {
             type: String,

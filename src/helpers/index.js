@@ -16,3 +16,5 @@ exports.cleanEmptyObjectKeys = (obj) => {
 };
 
 exports.checkObjectId = (id) => Types.ObjectId.isValid(id);
+
+exports.shuffleArray = (arr) => arr.sort(() => Math.random() - 0.5);
