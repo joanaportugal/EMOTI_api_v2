@@ -187,7 +187,6 @@ exports.findAll = async (req, res) => {
       activities: finalActivitiesList,
     });
   } catch (err) {
-    console.log(err);
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao econtrar as atividades. Tente mais tarde!",
@@ -196,9 +195,70 @@ exports.findAll = async (req, res) => {
 }
 
 exports.updateOne = async (req, res) => {
+  if (req.typeUser === "Criança") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para atualizar atividades!",
+    });
+  }
+  if (
+    !req.body.level &&
+    !req.body.description &&
+    !req.body.questions &&
+    !req.body.caseIMG
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: "É necessário atualizar pelo menos um destes itens: dificuldade, descrição, questões e imagem!",
+    });
+  }
+
+  let updateItems = cleanEmptyObjectKeys({
+    level: req.body.level,
+    description: req.body.description,
+    questions: req.body.questions,
+    caseIMG: req.body.caseIMG,
+  });
   try {
-    return res.status(200).send("OK")
+    const activity = await Activity.findById(req.params.activity_id).exec();
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+    if (req.typeUser === "Administrador" && activity.author._id !== req.userId) {
+      return res.status(404).json({
+        success: false,
+        error: `Não é possível editar essa atividade!`,
+      });
+    }
+
+
+    await Activity.findByIdAndUpdate(req.params.activity_id,
+      updateItems, {
+        returnOriginal: false, // to return the updated document
+        runValidators: true, // update validators on update command
+        useFindAndModify: false, //remove deprecation warning
+      }
+    ).exec();
+
+    return res.status(200).json({
+      success: true,
+      message: "Atividade atualizada!",
+    });
+
   } catch (err) {
+    if (err.name === "ValidationError") {
+      let errors = [];
+      Object.keys(err.errors).forEach((key) => {
+        errors.push(err.errors[key].message);
+      });
+      return res.status(400).json({
+        success: false,
+        error: errors
+      });
+    }
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao atualizar a atividade. Tente mais tarde!",
@@ -207,8 +267,27 @@ exports.updateOne = async (req, res) => {
 }
 
 exports.deleteOne = async (req, res) => {
+  if (req.typeUser === "Criança") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para apagar atividades!",
+    });
+  }
   try {
-    return res.status(200).send("OK")
+    const activity = await Activity.findById(req.params.activity_id).exec();
+    if (req.typeUser !== "Administrador" && activity.author._id !== req.userId) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+
+    await Activity.findByIdAndRemove(req.params.activity_id).exec();
+
+    return res.status(200).json({
+      success: true,
+      message: "Atividade apagada!",
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -218,6 +297,22 @@ exports.deleteOne = async (req, res) => {
 }
 
 exports.giveActivity = async (req, res) => {
+  if (req.typeUser === "Criança" || req.typeUser === "Administrador") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para dar atividades personalizadas!",
+    });
+  }
+  if (
+    !req.body.list &&
+    req.body.list.length === 0 &&
+    typeof req.body.list !== "object"
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: "É necessário uma lista de crianças!",
+    });
+  }
   try {
     return res.status(200).send("OK")
   } catch (err) {
@@ -229,6 +324,22 @@ exports.giveActivity = async (req, res) => {
 }
 
 exports.suggestActivity = async (req, res) => {
+  if (req.typeUser === "Criança" || req.typeUser === "Administrador") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para dar atividades personalizadas!",
+    });
+  }
+  if (
+    !req.body.list &&
+    req.body.list.length === 0 &&
+    typeof req.body.list !== "object"
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: "É necessário uma lista de crianças!",
+    });
+  }
   try {
     return res.status(200).send("OK")
   } catch (err) {
@@ -240,88 +351,7 @@ exports.suggestActivity = async (req, res) => {
 }
 
 /* OLD PROJECT
-exports.update = async (req, res) => {
-  if (req.typeUser === "Criança") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to update activities!",
-    });
-  }
-  if (
-    !req.body.level &&
-    !req.body.description &&
-    !req.body.questions &&
-    !req.body.caseIMG
-  ) {
-    return res.status(400).json({
-      success: false,
-      error:
-        "Please provide at least one of these items: level, description, questions and caseIMG!",
-    });
-  }
-  try {
-    let updateItems = {
-      level: req.body.level,
-      description: req.body.description,
-      questions: req.body.questions,
-      caseIMG: req.body.caseIMG,
-    };
-    updateItems = cleanEmptyObjectKeys(updateItems);
-
-    const activity = await Activity.findOneAndUpdate(
-      { title: req.params.activityName, author: req.username },
-      updateItems,
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: true, // update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
-
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        error: `Cannot find activity ${req.params.activityName} on your activities!`,
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: `Activity ${req.params.activityName} was updated successfully!`,
-    });
-  } catch (err) {
-    if (err.name === "ValidationError") {
-      let errors = [];
-      Object.keys(err.errors).forEach((key) => {
-        errors.push(err.errors[key].message);
-      });
-      return res.status(400).json({ success: false, error: errors });
-    }
-    return res.status(500).json({
-      success: false,
-      message: `Error updating activity ${req.params.activityName}!`,
-    });
-  }
-};
-
 exports.giveActivity = async (req, res) => {
-  // check if user who's giving is 'Professor' or 'Tutor' and has 'children' on body
-  if (req.typeUser !== "Professor" && req.typeUser !== "Tutor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to give activity to children!",
-    });
-  }
-  if (
-    !req.body.list ||
-    req.body.list.length === 0 ||
-    typeof req.body.list !== "object"
-  ) {
-    return res.status(400).json({
-      success: false,
-      error: "Please provide a list!",
-    });
-  }
   try {
     // check if activity exists and belongs to logged user
     const activity = await Activity.findOne({
@@ -455,19 +485,6 @@ exports.giveActivity = async (req, res) => {
 
 
 exports.suggestActivity = async (req, res) => {
-  // check if user who's giving is 'Professor' or 'Tutor' and has 'children' on body
-  if (req.typeUser !== "Professor" && req.typeUser !== "Tutor") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to suggest activity to children!",
-    });
-  }
-  if (req.body.list.length === 0 || typeof req.body.list !== "object") {
-    return res.status(400).json({
-      success: false,
-      error: "Please provide a list!",
-    });
-  }
   try {
     // check if activity exists and belongs to logged user
     const activity = await Activity.findOne({
@@ -591,61 +608,4 @@ exports.suggestActivity = async (req, res) => {
     });
   }
 };
-
-
-
-
-
-
-
-
-
-
-exports.delete = async (req, res) => {
-  if (req.typeUser === "Criança") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to delete activities!",
-    });
-  }
-  try {
-    const activity = await Activity.findOneAndRemove({
-      title: req.params.activityName,
-      author: req.username,
-    }).exec();
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        message: `Activity ${req.params.activityName} not found!`,
-      });
-    }
-
-    // remove from children
-    await User.updateMany(
-      { typeUser: "Criança" },
-      { $pull: { activitiesSuggested: activity.title } }
-    ).exec();
-    // remove from author
-    await User.findOneAndUpdate(
-      { username: req.username },
-      { $pull: { activitiesPersonalized: activity.title } },
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: false, //runs update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
-
-    return res.status(200).json({
-      success: true,
-      message: `Activity ${req.params.activityName} was deleted successfully!`,
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: `Error deleting activity ${req.params.activityName}!`,
-    });
-  }
-};
-
  */

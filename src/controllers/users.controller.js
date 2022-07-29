@@ -412,7 +412,6 @@ exports.createRelation = async (req, res) => {
 
         // validate relations
         const tutorUser = await User.findById(req.userId).exec();
-        console.log(childUser);
         if (tutorUser.children.includes(childUser._id)) {
             return res.status(400).json({
                 success: false,
@@ -546,7 +545,6 @@ exports.deleteRelation = async (req, res) => {
             message: "A criança já não está mais associada!",
         });
     } catch (err) {
-        console.log(err);
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao remover a criança. Tente mais tarde!",
