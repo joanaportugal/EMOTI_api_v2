@@ -4,8 +4,7 @@ const {
     SECRET
 } = require("../config");
 const {
-    cleanEmptyObjectKeys,
-    checkObjectId
+    cleanEmptyObjectKeys
 } = require("../helpers");
 const db = require("../models");
 const User = db.users;
@@ -253,12 +252,6 @@ exports.findOne = async (req, res) => {
             error: "Utilizador não encontrado!",
         });
     } catch (err) {
-        if (!checkObjectId(req.params.userId)) {
-            return res.status(400).json({
-                success: false,
-                error: "Insira um id válido!",
-            });
-        }
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao encontrar o utilizador. Tente mais tarde!",
@@ -347,12 +340,6 @@ exports.updateOne = async (req, res) => {
             message: !user.blocked ? "Utilizador bloqueado!" : "Utilizador desbloqueado!",
         });
     } catch (err) {
-        if (!checkObjectId(req.params.userId)) {
-            return res.status(400).json({
-                success: false,
-                error: "Insira um id válido!",
-            });
-        }
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao atualizar o status de bloqueio. Tente mais tarde!",
@@ -386,12 +373,6 @@ exports.deleteOne = async (req, res) => {
             message: "Utilizador apagado!"
         });
     } catch (err) {
-        if (!checkObjectId(req.params.userId)) {
-            return res.status(400).json({
-                success: false,
-                error: "Insira um id válido!",
-            });
-        }
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao apagar o utilizador. Tente mais tarde!",
@@ -550,18 +531,21 @@ exports.deleteRelation = async (req, res) => {
                 useFindAndModify: false, //remove deprecation warning
             }
         ).exec();
+        await User.findByIdAndUpdate(
+            req.params.user_id, {
+                tutor: ""
+            }, {
+                returnOriginal: false, // to return the updated document
+                runValidators: false, //runs update validators on update command
+                useFindAndModify: false, //remove deprecation warning
+            }
+        ).exec();
 
         return res.status(200).json({
             success: true,
             message: "A criança já não está mais associada!",
         });
     } catch (err) {
-        if (!checkObjectId(req.params.userId)) {
-            return res.status(400).json({
-                success: false,
-                error: "Insira um id válido!",
-            });
-        }
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao remover a criança. Tente mais tarde!",

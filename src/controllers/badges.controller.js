@@ -2,8 +2,7 @@ const db = require("../models");
 const Badge = db.badges;
 const Emotion = db.emotions;
 const {
-    cleanEmptyObjectKeys,
-    checkObjectId
+    cleanEmptyObjectKeys
 } = require("../helpers");
 
 exports.create = async (req, res) => {
@@ -100,12 +99,6 @@ exports.deleteOne = async (req, res) => {
             message: "Badge apagada!"
         });
     } catch (err) {
-        if (!checkObjectId(req.params.userId)) {
-            return res.status(400).json({
-                success: false,
-                error: "Insira um id válido!",
-            });
-        }
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao apagar a emoção. Tente mais tarde!",

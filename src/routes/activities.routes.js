@@ -11,7 +11,6 @@ router.route("/")
 
 router
   .route("/:activity_id")
-  .get(authController.verifyToken, activitiesController.findOne)
   .patch(authController.verifyToken, activitiesController.updateOne)
   .delete(authController.verifyToken, activitiesController.deleteOne);
 

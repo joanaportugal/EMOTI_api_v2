@@ -1,6 +1,7 @@
 const db = require("../models");
 const Activity = db.activities;
 const Emotion = db.emotions;
+const User = db.users;
 const {
   cleanEmptyObjectKeys,
   shuffleArray
@@ -39,7 +40,9 @@ exports.createOne = async (req, res) => {
           error: `Não foi possível encontrar a emoção ${question.correctAnswer}!`,
         });
       }
-      question.options = shuffleArray([question.correctAnswer, ...shuffleArray(emotions.filter(e => e !== question.correctAnswer).slice(0, 3))])
+      question.options = shuffleArray([question.correctAnswer,
+        ...shuffleArray(emotions.filter(e => e !== question.correctAnswer).slice(0, 3))
+      ])
 
     }
 
@@ -74,23 +77,120 @@ exports.createOne = async (req, res) => {
 }
 
 exports.findAll = async (req, res) => {
+  let queries = cleanEmptyObjectKeys({
+    level: req.query.level,
+    title: req.query.title,
+    category: req.query.category,
+    questionsNumber: req.query.questionsNumber
+  });
   try {
-    return res.status(200).send("OK")
+    let activities = [];
+    if (req.typeUser === "Administrador") {
+      activities = await Activity.find().populate("author").exec();
+    } else if (req.typeUser === "Criança") {
+      let child = await User.findById(req.userId).exec();
+      activities = await Activity.find({
+        $or: [{
+            public: true
+          }, {
+            _id: {
+              $in: child.activitiesPersonalized.map(a => a.activity)
+            },
+          },
+          {
+            _id: {
+              $in: child.activitiesSuggested.map(a => a.activity)
+            }
+          }
+        ]
+      }).populate("author").exec();
+      const arr = [];
+      for (const activity of activities) {
+        let foundInTutorSuggestions = await User.findOne({
+          _id: req.userId,
+          "activitiesSuggested.activity": activity._id,
+          "activitiesSuggested.suggestedBy": "Tutor"
+        }).exec();
+        let foundInProfessorSuggestions = await User.findOne({
+          _id: req.userId,
+          "activitiesSuggested.activity": activity._id,
+          "activitiesSuggested.suggestedBy": "Professor"
+        }).exec();
+
+        arr.push({
+          _id: activity._id,
+          title: activity.title,
+          author: activity.author,
+          level: activity.level,
+          coverIMG: activity.coverIMG,
+          description: activity.description,
+          category: activity.category,
+          questions: activity.questions,
+          suggestedByTutor: Boolean(foundInTutorSuggestions),
+          suggestedByProfessor: Boolean(foundInProfessorSuggestions),
+        });
+      }
+
+      activities = arr;
+    } else {
+      activities = await Activity.find({
+        $or: [{
+          public: true
+        }, {
+          author: req.userId
+        }]
+      }).populate("author").exec();
+    }
+    let finalActivitiesList = [];
+    for (const activity of activities) {
+      let matchesAll = true;
+      if (queries.hasOwnProperty("level")) {
+        matchesAll = matchesAll && activity.level === queries.level;
+      }
+      if (queries.hasOwnProperty("title")) {
+        matchesAll = matchesAll && activity.title.includes(queries.title);
+      }
+      if (queries.hasOwnProperty("category")) {
+        matchesAll = matchesAll && activity.category.includes(queries.category);
+      }
+      if (queries.hasOwnProperty("questionsNumber")) {
+        matchesAll = matchesAll && activity.questions.length === queries.questionsNumber;
+      }
+      const item = req.typeUser === "Criança" ? {
+        _id: activity._id,
+        title: activity.title,
+        author: activity.author.username,
+        level: activity.level,
+        coverIMG: activity.coverIMG,
+        description: activity.description,
+        category: activity.category,
+        questions: activity.questions,
+        personalizedActivity: activity.category.includes("Atividades Personalizadas"),
+        suggestedByTutor: activity.suggestedByTutor,
+        suggestedByProfessor: activity.suggestedByProfessor,
+      } : {
+        _id: activity._id,
+        title: activity.title,
+        author: activity.author.username,
+        level: activity.level,
+        coverIMG: activity.coverIMG,
+        description: activity.description,
+        category: activity.category,
+        questions: activity.questions,
+        personalizedActivity: activity.category.includes("Atividades Personalizadas")
+      };
+      finalActivitiesList = matchesAll ? [...finalActivitiesList, item] : finalActivitiesList
+    }
+
+    return res.status(200).json({
+      success: true,
+      activities: finalActivitiesList,
+    });
   } catch (err) {
+    console.log(err);
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao econtrar as atividades. Tente mais tarde!",
-    });
-  }
-}
-
-exports.findOne = async (req, res) => {
-  try {
-    return res.status(200).send("OK")
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message || "Tivemos problemas ao econtrar a atividade. Tente mais tarde!",
     });
   }
 }
@@ -140,51 +240,66 @@ exports.suggestActivity = async (req, res) => {
 }
 
 /* OLD PROJECT
-const User = db.users;
-const Class = db.classes;
-const Emotion = db.emotions;
-
-exports.findAll = async (req, res) => {
-  let queries = {
-    level: req.query.level,
-    category: req.query.category,
-    title: req.query.title,
-  };
-  queries = cleanEmptyObjectKeys(queries);
-
+exports.update = async (req, res) => {
+  if (req.typeUser === "Criança") {
+    return res.status(403).json({
+      success: false,
+      error: "You don't have permission to update activities!",
+    });
+  }
+  if (
+    !req.body.level &&
+    !req.body.description &&
+    !req.body.questions &&
+    !req.body.caseIMG
+  ) {
+    return res.status(400).json({
+      success: false,
+      error:
+        "Please provide at least one of these items: level, description, questions and caseIMG!",
+    });
+  }
   try {
-    let all = await Activity.find(queries).select("-_id").exec();
-    // get public/admin activities
-    let admins = await User.find({ typeUser: "Administrador" })
-      .select("username -_id")
-      .exec();
-    admins = admins.map((a) => a.username);
-    let public = all.filter((a) => admins.includes(a.author));
-    if (req.typeUser === "Administrador") {
-      return res.status(200).json({ success: true, activities: public });
+    let updateItems = {
+      level: req.body.level,
+      description: req.body.description,
+      questions: req.body.questions,
+      caseIMG: req.body.caseIMG,
+    };
+    updateItems = cleanEmptyObjectKeys(updateItems);
+
+    const activity = await Activity.findOneAndUpdate(
+      { title: req.params.activityName, author: req.username },
+      updateItems,
+      {
+        returnOriginal: false, // to return the updated document
+        runValidators: true, // update validators on update command
+        useFindAndModify: false, //remove deprecation warning
+      }
+    ).exec();
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Cannot find activity ${req.params.activityName} on your activities!`,
+      });
     }
 
-    // get tutor/teacher activities
-    if (req.typeUser === "Tutor" || req.typeUser === "Professor") {
-      let personalized = all.filter((a) => a.author === req.username);
-      return res
-        .status(200)
-        .json({ success: true, activities: [...public, ...personalized] });
-    }
-
-    // get child activities
-    let child = await User.findOne({ username: req.username }).exec();
-    let personalized = all.filter((a) =>
-      child.activitiesPersonalized.includes(a.title)
-    );
     return res.status(200).json({
       success: true,
-      activities: [...public, ...personalized],
+      message: `Activity ${req.params.activityName} was updated successfully!`,
     });
   } catch (err) {
+    if (err.name === "ValidationError") {
+      let errors = [];
+      Object.keys(err.errors).forEach((key) => {
+        errors.push(err.errors[key].message);
+      });
+      return res.status(400).json({ success: false, error: errors });
+    }
     return res.status(500).json({
       success: false,
-      error: err.message || "Some error occurred while retrieving activities.",
+      message: `Error updating activity ${req.params.activityName}!`,
     });
   }
 };
@@ -322,6 +437,22 @@ exports.giveActivity = async (req, res) => {
     });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 exports.suggestActivity = async (req, res) => {
   // check if user who's giving is 'Professor' or 'Tutor' and has 'children' on body
@@ -461,6 +592,15 @@ exports.suggestActivity = async (req, res) => {
   }
 };
 
+
+
+
+
+
+
+
+
+
 exports.delete = async (req, res) => {
   if (req.typeUser === "Criança") {
     return res.status(403).json({
@@ -508,67 +648,4 @@ exports.delete = async (req, res) => {
   }
 };
 
-exports.update = async (req, res) => {
-  if (req.typeUser === "Criança") {
-    return res.status(403).json({
-      success: false,
-      error: "You don't have permission to update activities!",
-    });
-  }
-  if (
-    !req.body.level &&
-    !req.body.description &&
-    !req.body.questions &&
-    !req.body.caseIMG
-  ) {
-    return res.status(400).json({
-      success: false,
-      error:
-        "Please provide at least one of these items: level, description, questions and caseIMG!",
-    });
-  }
-  try {
-    let updateItems = {
-      level: req.body.level,
-      description: req.body.description,
-      questions: req.body.questions,
-      caseIMG: req.body.caseIMG,
-    };
-    updateItems = cleanEmptyObjectKeys(updateItems);
-
-    const activity = await Activity.findOneAndUpdate(
-      { title: req.params.activityName, author: req.username },
-      updateItems,
-      {
-        returnOriginal: false, // to return the updated document
-        runValidators: true, // update validators on update command
-        useFindAndModify: false, //remove deprecation warning
-      }
-    ).exec();
-
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        error: `Cannot find activity ${req.params.activityName} on your activities!`,
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: `Activity ${req.params.activityName} was updated successfully!`,
-    });
-  } catch (err) {
-    if (err.name === "ValidationError") {
-      let errors = [];
-      Object.keys(err.errors).forEach((key) => {
-        errors.push(err.errors[key].message);
-      });
-      return res.status(400).json({ success: false, error: errors });
-    }
-    return res.status(500).json({
-      success: false,
-      message: `Error updating activity ${req.params.activityName}!`,
-    });
-  }
-};
  */

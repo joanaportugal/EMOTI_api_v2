@@ -1,7 +1,3 @@
-const {
-    Types
-} = require("mongoose")
-
 exports.cleanEmptyObjectKeys = (obj) => {
     for (let propName in obj) {
         if (
@@ -14,7 +10,5 @@ exports.cleanEmptyObjectKeys = (obj) => {
     }
     return obj;
 };
-
-exports.checkObjectId = (id) => Types.ObjectId.isValid(id);
 
 exports.shuffleArray = (arr) => arr.sort(() => Math.random() - 0.5);
