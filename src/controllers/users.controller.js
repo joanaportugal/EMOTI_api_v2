@@ -108,7 +108,6 @@ exports.login = async (req, res) => {
         );
 
         if (user.typeUser === "Criança") {
-            console.log("entrou aqui");
             let today = new Date();
             let date = `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()}`;
             let time = `${today.getHours()}:${today.getMinutes()}`;
@@ -413,6 +412,7 @@ exports.createRelation = async (req, res) => {
 
         // validate relations
         const tutorUser = await User.findById(req.userId).exec();
+        console.log(childUser);
         if (tutorUser.children.includes(childUser._id)) {
             return res.status(400).json({
                 success: false,
@@ -533,7 +533,7 @@ exports.deleteRelation = async (req, res) => {
         ).exec();
         await User.findByIdAndUpdate(
             req.params.user_id, {
-                tutor: ""
+                tutor: null
             }, {
                 returnOriginal: false, // to return the updated document
                 runValidators: false, //runs update validators on update command
@@ -546,6 +546,7 @@ exports.deleteRelation = async (req, res) => {
             message: "A criança já não está mais associada!",
         });
     } catch (err) {
+        console.log(err);
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao remover a criança. Tente mais tarde!",
