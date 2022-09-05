@@ -19,6 +19,10 @@ router
   .post(authController.verifyToken, activitiesController.giveActivity)
   .patch(authController.verifyToken, activitiesController.suggestActivity);
 
+router
+  .route("/:activity_id/children/:child_id")
+  .patch(authController.verifyToken, activitiesController.removeVisibility)
+
 router.all("*", function (req, res) {
   res.status(404).json({
     message: "ACTIVITIES: what???"
