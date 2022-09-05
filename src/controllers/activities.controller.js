@@ -78,10 +78,11 @@ exports.createOne = async (req, res) => {
 
 exports.findAll = async (req, res) => {
   let queries = cleanEmptyObjectKeys({
+    _id: req.query._id,
     level: req.query.level,
     title: req.query.title,
     category: req.query.category,
-    questionsNumber: req.query.questionsNumber
+    questionsNumber: Number(req.query.questionsNumber)
   });
   try {
     let activities = [];
