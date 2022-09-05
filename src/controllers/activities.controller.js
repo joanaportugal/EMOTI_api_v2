@@ -78,13 +78,28 @@ exports.createOne = async (req, res) => {
 
 exports.findAll = async (req, res) => {
   let queries = cleanEmptyObjectKeys({
-    _id: req.query._id,
+    id: req.query.id,
     level: req.query.level,
     title: req.query.title,
     category: req.query.category,
-    questionsNumber: Number(req.query.questionsNumber)
+    questionsNumber: req.query.questionsNumber
   });
+
   try {
+    if (queries.hasOwnProperty("id")) {
+      let activity = await Activity.findById(queries.id).populate("author").exec();
+      if (!activity) {
+        return res.status(200).json({
+          success: false,
+          error: "Atividade com esse id não encontrada!",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        activities: activity,
+      });
+    }
     let activities = [];
     if (req.typeUser === "Administrador") {
       activities = await Activity.find().populate("author").exec();
@@ -142,6 +157,7 @@ exports.findAll = async (req, res) => {
         }]
       }).populate("author").exec();
     }
+
     let finalActivitiesList = [];
     for (const activity of activities) {
       let matchesAll = true;
@@ -155,8 +171,9 @@ exports.findAll = async (req, res) => {
         matchesAll = matchesAll && activity.category.includes(queries.category);
       }
       if (queries.hasOwnProperty("questionsNumber")) {
-        matchesAll = matchesAll && activity.questions.length === queries.questionsNumber;
+        matchesAll = matchesAll && activity.questions.length === Number(queries.questionsNumber);
       }
+
       const item = req.typeUser === "Criança" ? {
         _id: activity._id,
         title: activity.title,
@@ -170,7 +187,6 @@ exports.findAll = async (req, res) => {
         suggestedByTutor: activity.suggestedByTutor,
         suggestedByProfessor: activity.suggestedByProfessor,
       } : {
-        _id: activity._id,
         title: activity.title,
         author: activity.author.username,
         level: activity.level,
@@ -194,6 +210,51 @@ exports.findAll = async (req, res) => {
     });
   }
 }
+
+/*
+exports.findAll = async (req, res) => {
+  try {
+    
+    let finalActivitiesList = [];
+    for (const activity of activities) {
+      
+      const item = req.typeUser === "Criança" ? {
+        _id: activity._id,
+        title: activity.title,
+        author: activity.author.username,
+        level: activity.level,
+        coverIMG: activity.coverIMG,
+        description: activity.description,
+        category: activity.category,
+        questions: activity.questions,
+        personalizedActivity: activity.category.includes("Atividades Personalizadas"),
+        suggestedByTutor: activity.suggestedByTutor,
+        suggestedByProfessor: activity.suggestedByProfessor,
+      } : {
+        title: activity.title,
+        author: activity.author.username,
+        level: activity.level,
+        coverIMG: activity.coverIMG,
+        description: activity.description,
+        category: activity.category,
+        questions: activity.questions,
+        personalizedActivity: activity.category.includes("Atividades Personalizadas")
+      };
+      finalActivitiesList = matchesAll ? [...finalActivitiesList, item] : finalActivitiesList
+    }
+
+    return res.status(200).json({
+      success: true,
+      activities: finalActivitiesList,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao econtrar as atividades. Tente mais tarde!",
+    });
+  }
+}
+ */
 
 exports.updateOne = async (req, res) => {
   if (req.typeUser === "Criança") {
