@@ -276,14 +276,15 @@ exports.deleteOne = async (req, res) => {
   }
   try {
     const activity = await Activity.findById(req.params.activity_id).exec();
-    if (req.typeUser !== "Administrador" && activity.author._id !== req.userId) {
+
+    const selected = await Activity.findByIdAndRemove(activity._id).exec();
+
+    if (!selected) {
       return res.status(404).json({
         success: false,
         error: `Não encontramos essa atividade!`,
       });
     }
-
-    await Activity.findByIdAndRemove(req.params.activity_id).exec();
 
     return res.status(200).json({
       success: true,

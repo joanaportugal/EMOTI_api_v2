@@ -22,6 +22,8 @@ module.exports = (mongoose) => {
             correctAnswer: String,
             points: Number,
             options: Array,
+            text: String,
+            categoryImg: String,
         }],
         coverIMG: {
             type: String,
