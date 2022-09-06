@@ -246,13 +246,30 @@ exports.updateOne = async (req, res) => {
         error: `Não encontramos essa atividade!`,
       });
     }
-    if (req.typeUser === "Administrador" && activity.author._id !== req.userId) {
-      return res.status(404).json({
-        success: false,
-        error: `Não é possível editar essa atividade!`,
-      });
-    }
 
+    if (updateItems.hasOwnProperty("questions")) {
+      const allEmotions = await Emotion.find().exec();
+      const emotions = [];
+      for (const emotion of allEmotions) {
+        emotions.push(emotion.name)
+      }
+
+      for (const question of updateItems.questions) {
+        const emotion = await Emotion.findOne({
+          name: question.correctAnswer,
+        }).exec();
+        if (!emotion) {
+          return res.status(404).json({
+            success: false,
+            error: `Não foi possível encontrar a emoção ${question.correctAnswer}!`,
+          });
+        }
+
+        question.options = shuffleArray([question.correctAnswer,
+          ...shuffleArray(emotions.filter(e => e !== question.correctAnswer).slice(0, 3))
+        ])
+      }
+    }
 
     await Activity.findByIdAndUpdate(req.params.activity_id,
       updateItems, {
@@ -363,22 +380,7 @@ exports.giveActivity = async (req, res) => {
 
     // tutor
     if (req.typeUser === "Tutor") {
-      // check if children are related
-      const children = await User.find({
-        _id: {
-          $in: req.body.list
-        }
-      }).exec();
-      if (req.body.list.length !== children.length) {
-        return res.status(400).json({
-          success: false,
-          error: `${
-            req.body.list.length - children.length
-          } crianças não estão nas suas relações!`,
-        });
-      }
-
-      // suggest activity
+      // give activity
       await User.updateMany({
         _id: {
           $in: req.body.list
@@ -433,7 +435,7 @@ exports.giveActivity = async (req, res) => {
         }
       }
 
-      // suggest activity
+      // give activity
       await User.updateMany({
         _id: {
           $in: studentsList
@@ -540,18 +542,101 @@ exports.suggestActivity = async (req, res) => {
     }
 
     if (req.typeUser === "Tutor") {
+      // suggest activity
+      await User.updateMany({
+        _id: {
+          $in: req.body.list
+        },
+        $not: [{
+            "activitiesSuggested.activity": {
+              $ne: activity._id
+            }
+          },
+          {
+            "activitiesSuggested.suggestedBy": {
+              $ne: "Tutor"
+            }
+          }
+        ]
+      }, {
+        $push: {
+          activitiesSuggested: {
+            activity: activity._id,
+            suggestedBy: "Tutor"
+          }
+        }
+      }).exec();
 
+      return res.status(200).json({
+        success: true,
+        message: `Atividade com id ${req.params.activity_id} foi sugerida para as crianças!`
+      });
     } else {
+      // check if all classes belong to user and all classes have students
+      const classes = await Class.find({
+        _id: {
+          $in: req.body.list
+        },
+        teacher: req.userId,
+        students: {
+          $exists: true,
+          $ne: []
+        },
+      }).exec();
 
+      if (req.body.list.length !== classes.length) {
+        return res.status(400).json({
+          success: false,
+          error: `${
+            req.body.list.length - classes.length
+          } turmas não existem ou não têem alunos!`,
+        });
+      }
+
+      const students = classes.map((c) => c.students);
+      let studentsList = [];
+      for (const item of students) {
+        for (const name of item) {
+          studentsList.push(name.child);
+        }
+      }
+
+      console.log(studentsList);
+
+      // suggest activity
+      await User.updateMany({
+        _id: {
+          $in: studentsList
+        },
+        $not: [{
+            "activitiesSuggested.activity": {
+              $ne: activity._id
+            }
+          },
+          {
+            "activitiesSuggested.suggestedBy": {
+              $ne: "Professor"
+            }
+          }
+        ]
+      }, {
+        $push: {
+          activitiesSuggested: {
+            activity: activity._id,
+            suggestedBy: "Professor"
+          }
+        }
+      }).exec();
+
+      return res.status(200).json({
+        success: true,
+        message: classes.map(
+          (c) =>
+          `Atividade com id ${req.params.activity_id} foi sugerida a todas as crianças da turma ${c.name}!`
+        ),
+      });
     }
 
-    return res.status(200).json({
-      success: true,
-      //message: classes.map(
-      //  (c) =>
-      //    `Atividade com id ${req.params.activity_id} foi sugerida a todas as crianças da turma ${c.name}!`
-      //),
-    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -559,119 +644,3 @@ exports.suggestActivity = async (req, res) => {
     });
   }
 }
-
-/* OLD PROJECT
-
-exports.suggestActivity = async (req, res) => {
-  try {
-    // tutor
-    if (req.typeUser === "Tutor") {
-      // check if children are related
-      const children = await User.find({
-        username: { $in: req.body.list },
-        tutor: req.username,
-      }).exec();
-      if (req.body.list.length !== children.length) {
-        return res.status(400).json({
-          success: false,
-          error: `${
-            req.body.list.length - children.length
-          } children not found on your relations!`,
-        });
-      }
-      // check if activity already on children
-
-      const cActivities = await User.find({
-        username: { $in: req.body.list },
-        tutor: req.username,
-        "activitiesSuggested.title": { $ne: req.params.activityName },
-      }).exec();
-      if (req.body.list.length !== cActivities.length) {
-        return res.status(400).json({
-          success: false,
-          error: `${
-            req.body.list.length - cActivities.length
-          } children have already activity ${req.params.activityName}!`,
-        });
-      }
-
-      // suggest activity
-      await User.updateMany(
-        { username: { $in: req.body.list } },
-        {
-          $push: {
-            activitiesSuggested: { title: activity.title, who: req.typeUser },
-          },
-        }
-      ).exec();
-
-      return res.status(200).json({
-        success: true,
-        message: children.map(
-          (c) =>
-            `Activity ${req.params.activityName} added to child ${c.username}!`
-        ),
-      });
-    }
-
-    // teacher
-    // check if all classes belong to user and all classes have students
-    const classes = await Class.find({
-      name: { $in: req.body.list },
-      teacher: req.username,
-      students: { $exists: true, $ne: [] },
-    }).exec();
-    if (req.body.list.length !== classes.length) {
-      return res.status(400).json({
-        success: false,
-        error: `${
-          req.body.list.length - classes.length
-        } classes doesn't exist or doesn't have students to give activities!`,
-      });
-    }
-    const students = classes.map((c) => c.students);
-    let studentsList = [];
-    for (const item of students) {
-      for (const name of item) {
-        studentsList.push(name);
-      }
-    }
-    // check if activity already on children
-    const cActivities = await User.find({
-      username: { $in: studentsList },
-      "activitiesSuggested.title": { $ne: req.params.activityName },
-    }).exec();
-    if (req.body.list.length !== cActivities.length) {
-      return res.status(400).json({
-        success: false,
-        error: `${
-          req.body.list.length - cActivities.length
-        } class have already activity ${req.params.activityName}!`,
-      });
-    }
-    // suggest activity
-    await User.updateMany(
-      { username: { $in: studentsList } },
-      {
-        $push: {
-          activitiesSuggested: { title: activity.title, who: req.typeUser },
-        },
-      }
-    ).exec();
-
-    // suggest activity to classes' children
-    return res.status(200).json({
-      success: true,
-      message: classes.map(
-        (c) =>
-          `Activity ${req.params.activityName} added to all children in class ${c.name}!`
-      ),
-    });
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message || "Some error occurred while giving activitiy.",
-    });
-  }
-};
- */
