@@ -188,6 +188,7 @@ exports.findAll = async (req, res) => {
         suggestedByTutor: activity.suggestedByTutor,
         suggestedByProfessor: activity.suggestedByProfessor,
       } : {
+        _id: activity._id,
         title: activity.title,
         author: activity.author.username,
         level: activity.level,
@@ -382,12 +383,14 @@ exports.giveActivity = async (req, res) => {
         _id: {
           $in: req.body.list
         },
-        "activitiesPersonalized._id": {
+        "activitiesPersonalized.activity": {
           $ne: activity._id
         }
       }, {
         $push: {
-          activitiesPersonalized: activity._id
+          activitiesPersonalized: {
+            activity: activity._id
+          }
         }
       }).exec();
 
@@ -399,61 +402,61 @@ exports.giveActivity = async (req, res) => {
         ),
       });
     }
-
     // teacher
-    // check if all classes belong to user and all classes have students
-    const classes = await Class.find({
-      _id: {
-        $in: req.body.list
-      },
-      teacher: req.userId,
-      students: {
-        $exists: true,
-        $ne: []
-      },
-    }).exec();
+    else {
+      // check if all classes belong to user and all classes have students
+      const classes = await Class.find({
+        _id: {
+          $in: req.body.list
+        },
+        teacher: req.userId,
+        students: {
+          $exists: true,
+          $ne: []
+        },
+      }).exec();
 
-    if (req.body.list.length !== classes.length) {
-      return res.status(400).json({
-        success: false,
-        error: `${
-          req.body.list.length - classes.length
-        } turmas não existem ou não têem alunos!`,
+      if (req.body.list.length !== classes.length) {
+        return res.status(400).json({
+          success: false,
+          error: `${
+            req.body.list.length - classes.length
+          } turmas não existem ou não têem alunos!`,
+        });
+      }
+
+      const students = classes.map((c) => c.students);
+      let studentsList = [];
+      for (const item of students) {
+        for (const name of item) {
+          studentsList.push(name.child);
+        }
+      }
+
+      // suggest activity
+      await User.updateMany({
+        _id: {
+          $in: studentsList
+        },
+        "activitiesPersonalized.activity": {
+          $ne: activity._id
+        }
+      }, {
+        $push: {
+          activitiesPersonalized: {
+            activity: activity._id
+          }
+        }
+      }).exec();
+
+      return res.status(200).json({
+        success: true,
+        message: classes.map(
+          (c) =>
+          `Atividade ${activity._id} adicionada a todas as crianças da turma ${c.name}!`
+        ),
       });
     }
-
-    const students = classes.map((c) => c.students);
-    let studentsList = [];
-    for (const item of students) {
-      for (const name of item) {
-        studentsList.push(name.child);
-      }
-    }
-
-    console.log(activity);
-
-    // suggest activity
-    await User.updateMany({
-      _id: {
-        $in: studentsList
-      },
-      "activitiesPersonalized._id": {
-        $ne: activity._id
-      }
-    }, {
-      $push: {
-        activitiesPersonalized: activity._id
-      }
-    }).exec();
-
-
-    return res.status(200).json({
-      success: true,
-      message: classes.map(
-        (c) =>
-        `Atividade ${activity._id} adicionada a todas as crianças da turma ${c.name}!`
-      ),
-    });
 
   } catch (err) {
     return res.status(500).json({
@@ -472,7 +475,36 @@ exports.removeVisibility = async (req, res) => {
   }
 
   try {
-    return res.status(200).send("OK")
+    // check if activity exists and belongs to logged user
+    const activity = await Activity.findOne({
+      _id: req.params.activity_id,
+      author: req.userId
+    }).exec();
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+
+    await User.findByIdAndUpdate({
+      _id: req.params.child_id,
+    }, {
+      $pull: {
+        activitiesPersonalized: {
+          activity: req.params.activity_id
+        }
+      }
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: true, // update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec()
+
+    return res.status(200).json({
+      success: true,
+      message: `Atividade com id ${activity._id} removida da criança com id ${req.params.child_id}!`
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -488,18 +520,38 @@ exports.suggestActivity = async (req, res) => {
       error: "O seu tipo de utilizador não tem permissões para dar atividades personalizadas!",
     });
   }
-  if (
-    !req.body.list &&
-    req.body.list.length === 0 &&
-    typeof req.body.list !== "object"
-  ) {
+
+  if (!req.body.list && typeof req.body.list !== "object") {
     return res.status(400).json({
       success: false,
       error: "É necessário uma lista de crianças!",
     });
   }
   try {
-    return res.status(200).send("OK")
+    // check if activity exists
+    const activity = await Activity.findOne({
+      _id: req.params.activity_id,
+    }).exec();
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+
+    if (req.typeUser === "Tutor") {
+
+    } else {
+
+    }
+
+    return res.status(200).json({
+      success: true,
+      //message: classes.map(
+      //  (c) =>
+      //    `Atividade com id ${req.params.activity_id} foi sugerida a todas as crianças da turma ${c.name}!`
+      //),
+    });
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -512,18 +564,6 @@ exports.suggestActivity = async (req, res) => {
 
 exports.suggestActivity = async (req, res) => {
   try {
-    // check if activity exists and belongs to logged user
-    const activity = await Activity.findOne({
-      title: req.params.activityName,
-    }).exec();
-
-    if (!activity) {
-      return res.status(404).json({
-        success: false,
-        error: `Activity ${req.params.activityName} not found!`,
-      });
-    }
-
     // tutor
     if (req.typeUser === "Tutor") {
       // check if children are related
