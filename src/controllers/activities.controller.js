@@ -25,26 +25,28 @@ exports.createOne = async (req, res) => {
         req.typeUser === "Tutor" ? "Atividades Personalizadas (Tutor)" : "Atividades Personalizadas (Professor)")
   });
   try {
-    const allEmotions = await Emotion.find().exec();
-    const emotions = [];
-    for (const emotion of allEmotions) {
-      emotions.push(emotion.name)
-    }
-
-    for (const question of activity.questions) {
-      const emotion = await Emotion.findOne({
-        name: question.correctAnswer,
-      }).exec();
-      if (!emotion) {
-        return res.status(404).json({
-          success: false,
-          error: `Não foi possível encontrar a emoção ${question.correctAnswer}!`,
-        });
+    if (req.body.category !== "Reconhecimento") {
+      const allEmotions = await Emotion.find().exec();
+      const emotions = [];
+      for (const emotion of allEmotions) {
+        emotions.push(emotion.name)
       }
-      question.options = shuffleArray([question.correctAnswer,
-        ...shuffleArray(emotions.filter(e => e !== question.correctAnswer).slice(0, 3))
-      ])
 
+      for (const question of activity.questions) {
+        const emotion = await Emotion.findOne({
+          name: question.correctAnswer,
+        }).exec();
+        if (!emotion) {
+          return res.status(404).json({
+            success: false,
+            error: `Não foi possível encontrar a emoção ${question.correctAnswer}!`,
+          });
+        }
+        question.options = shuffleArray([question.correctAnswer,
+          ...shuffleArray(emotions.filter(e => e !== question.correctAnswer).slice(0, 3))
+        ])
+
+      }
     }
 
     await activity.save();
@@ -224,7 +226,7 @@ exports.updateOne = async (req, res) => {
     !req.body.level &&
     !req.body.description &&
     !req.body.questions &&
-    !req.body.caseIMG
+    !req.body.coverIMG
   ) {
     return res.status(400).json({
       success: false,
@@ -236,7 +238,7 @@ exports.updateOne = async (req, res) => {
     level: req.body.level,
     description: req.body.description,
     questions: req.body.questions,
-    caseIMG: req.body.caseIMG,
+    coverIMG: req.body.coverIMG,
   });
   try {
     const activity = await Activity.findById(req.params.activity_id).exec();
@@ -601,8 +603,6 @@ exports.suggestActivity = async (req, res) => {
         }
       }
 
-      console.log(studentsList);
-
       // suggest activity
       await User.updateMany({
         _id: {
@@ -641,6 +641,102 @@ exports.suggestActivity = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao sugerir a atividade às crianças. Tente mais tarde!",
+    });
+  }
+}
+
+exports.acceptPersonalized = async (req, res) => {
+  if (req.typeUser !== "Administrador") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para aceitar atividades personalizadas!",
+    });
+  }
+  try {
+    const activity = await Activity.findById(req.params.activity_id).exec();
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+
+    if (activity.category === "Quiz" || activity.category === "Reconhecimento") {
+      return res.status(404).json({
+        success: false,
+        error: "Não é possível aprovar uma atividade criada pelo tipo Administrador!",
+      });
+    }
+
+    if (activity.approved) {
+      return res.status(404).json({
+        success: false,
+        error: "A atividade já está aprovada!",
+      });
+    }
+
+    await Activity.findByIdAndUpdate(req.params.activity_id, {
+      approved: true
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: true, // update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
+
+    return res.status(500).json({
+      success: false,
+      message: "Atividade personalizada aceite!",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao aceitar a atividade personalizada. Tente mais tarde!",
+    });
+  }
+}
+
+exports.rejectPersonalized = async (req, res) => {
+  if (req.typeUser !== "Administrador") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para recusar atividades personalizadas!",
+    });
+  }
+  try {
+    const activity = await Activity.findById(req.params.activity_id).exec();
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+
+    if (activity.category === "Quiz" || activity.category === "Reconhecimento") {
+      return res.status(404).json({
+        success: false,
+        error: "Não é possível rejeitar uma atividade criada pelo tipo Administrador!",
+      });
+    }
+
+    if (activity.approved) {
+      return res.status(404).json({
+        success: false,
+        error: "A atividade já está aprovada. Não pode ser rejeitada depois da aprovação!",
+      });
+    }
+
+    await Activity.findByIdAndRemove(req.params.activity_id).exec();
+
+    return res.status(500).json({
+      success: false,
+      message: "Atividade personalizada recusada!",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao recusar a atividade personalizada. Tente mais tarde!",
     });
   }
 }

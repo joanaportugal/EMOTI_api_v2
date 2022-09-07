@@ -7,6 +7,9 @@ const {
     cleanEmptyObjectKeys
 } = require("../helpers");
 const db = require("../models");
+const {
+    request
+} = require("express");
 const User = db.users;
 
 // users
@@ -475,23 +478,29 @@ exports.findRelations = async (req, res) => {
         const children = await User.find({
             _id: {
                 $in: user.children
+            },
+            name: {
+                $regex: req.query.name ? req.query.name : "",
+                $options: "i"
             }
         }).exec();
 
         return res.status(200).json({
             success: true,
-            children: children.map(child => {
-                let nameparts = child.name.split(" ");
-                let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
-                return {
-                    _id: child._id,
-                    name: child.name,
-                    imgProfile: child.imgProfile,
-                    username: child.username,
-                    email: child.email,
-                    initials
-                }
-            })
+            children: children
+                .map(child => {
+                    let nameparts = child.name.split(" ");
+                    let initials = nameparts[0].charAt(0).toUpperCase() + nameparts[1].charAt(0).toUpperCase();
+                    return {
+                        _id: child._id,
+                        name: child.name,
+                        imgProfile: child.imgProfile,
+                        username: child.username,
+                        email: child.email,
+                        last_access: child.last_access,
+                        initials
+                    }
+                })
         });
     } catch (err) {
         return res.status(500).json({

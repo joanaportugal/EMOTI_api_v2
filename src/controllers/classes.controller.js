@@ -60,7 +60,11 @@ exports.findClasses = async (req, res) => {
   }
   try {
     const classes = await Class.find({
-      teacher: req.userId
+      teacher: req.userId,
+      name: {
+        $regex: req.query.name ? req.query.name : "",
+        $options: "i"
+      }
     }).select("-teacher").populate({
       path: "requests",
       populate: {
@@ -563,14 +567,16 @@ exports.findAllStudents = async (req, res) => {
     for (const item of list) {
       for (const student of item.students) {
         const child = student.child;
-        students.push({
-          _id: child._id,
-          class: item.name,
-          name: child.name,
-          imgProfile: child.imgProfile,
-          email: child.email,
-          tutor: child.tutor.name
-        })
+        if (child.name.toLowerCase().includes(req.query.name)) {
+          students.push({
+            _id: child._id,
+            class: item.name,
+            name: child.name,
+            imgProfile: child.imgProfile,
+            email: child.email,
+            tutor: child.tutor.name
+          })
+        }
       }
     }
 

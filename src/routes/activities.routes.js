@@ -14,6 +14,10 @@ router
   .patch(authController.verifyToken, activitiesController.updateOne)
   .delete(authController.verifyToken, activitiesController.deleteOne);
 
+router.route("/:activity_id/permission")
+  .patch(authController.verifyToken, activitiesController.acceptPersonalized)
+  .delete(authController.verifyToken, activitiesController.rejectPersonalized);
+
 router
   .route("/:activity_id/children")
   .post(authController.verifyToken, activitiesController.giveActivity)
