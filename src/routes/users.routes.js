@@ -19,7 +19,9 @@ router.route("/admin")
 
 router.route("/notifications")
     .get(authController.verifyToken, usersController.findNotifications)
-    .patch(authController.verifyToken, usersController.createNotification)
+    .post(authController.verifyToken, usersController.createNotification);
+
+router.route("/notifications/:notification_id")
     .delete(authController.verifyToken, usersController.deleteNotification);
 
 router.route("/children")

@@ -55,7 +55,10 @@ module.exports = (mongoose) => {
             type: mongoose.Schema.Types.ObjectId,
             ref: "users"
         }],
-        notifications: [String],
+        notifications: [{
+            title: String,
+            text: String,
+        }],
         totalPoints: {
             type: Number,
             default: 0

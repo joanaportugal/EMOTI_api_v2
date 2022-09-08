@@ -7,9 +7,6 @@ const {
     cleanEmptyObjectKeys
 } = require("../helpers");
 const db = require("../models");
-const {
-    request
-} = require("express");
 const User = db.users;
 
 // users
@@ -576,9 +573,33 @@ exports.findNotifications = async (req, res) => {
 }
 
 exports.createNotification = async (req, res) => {
+    if (!req.body.list && !req.body.title && !req.body.text) {
+        return res.status(404).json({
+            success: false,
+            error: "É necessário uma lista de utilizadores, título e texto da notificação!",
+        });
+    }
     try {
+        await User.updateMany({
+            _id: {
+                $in: req.body.list
+            }
+        }, {
+            $push: {
+                notifications: {
+                    title: req.body.title,
+                    text: req.body.text
+                }
+            }
+        }, {
+            returnOriginal: false,
+            runValidators: true,
+            useFindAndModify: false
+        }).exec();
+
         return res.status(200).json({
             success: true,
+            message: "Notificações criadas para os utilizadores!"
         });
     } catch (err) {
         return res.status(500).json({
@@ -590,8 +611,23 @@ exports.createNotification = async (req, res) => {
 
 exports.deleteNotification = async (req, res) => {
     try {
+        await User.findByIdAndUpdate(
+            req.userId, {
+                $pull: {
+                    notifications: {
+                        _id: req.params.notification_id
+                    }
+                }
+            }, {
+                returnOriginal: false, // to return the updated document
+                runValidators: false, //runs update validators on update command
+                useFindAndModify: false, //remove deprecation warning
+            }
+        ).exec();
+
         return res.status(200).json({
             success: true,
+            message: "Notificação apagada!"
         });
     } catch (err) {
         return res.status(500).json({
