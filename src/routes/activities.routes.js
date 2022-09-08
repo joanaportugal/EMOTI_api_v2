@@ -9,6 +9,9 @@ router.route("/")
   .get(authController.verifyToken, activitiesController.findAll)
   .post(authController.verifyToken, activitiesController.createOne);
 
+router.route("/top")
+  .get(authController.verifyToken, activitiesController.topActivities);
+
 router
   .route("/:activity_id")
   .patch(authController.verifyToken, activitiesController.updateOne)

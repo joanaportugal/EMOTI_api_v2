@@ -14,7 +14,13 @@ router.route("/profile")
     .get(authController.verifyToken, usersController.getProfile)
     .patch(authController.verifyToken, usersController.updateProfile);
 
-router.route("/admin").post(authController.verifyToken, usersController.createOneAdmin);
+router.route("/admin")
+    .post(authController.verifyToken, usersController.createOneAdmin);
+
+router.route("/notifications")
+    .get(authController.verifyToken, usersController.findNotifications)
+    .patch(authController.verifyToken, usersController.createNotification)
+    .delete(authController.verifyToken, usersController.deleteNotification);
 
 router.route("/children")
     .get(authController.verifyToken, usersController.findRelations)

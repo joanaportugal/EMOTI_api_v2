@@ -231,7 +231,6 @@ exports.findAll = async (req, res) => {
             error: "Tivemos problemas ao obter a lista de utilizadores. Tente mais tarde!",
         });
     }
-
 }
 
 exports.findOne = async (req, res) => {
@@ -557,6 +556,47 @@ exports.deleteRelation = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao remover a criança. Tente mais tarde!",
+        });
+    }
+}
+
+exports.findNotifications = async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).exec();
+        return res.status(200).json({
+            success: true,
+            notifications: user.notifications
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao obter a lista de notificações. Tente mais tarde!",
+        });
+    }
+}
+
+exports.createNotification = async (req, res) => {
+    try {
+        return res.status(200).json({
+            success: true,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao criar a notificação. Tente mais tarde!",
+        });
+    }
+}
+
+exports.deleteNotification = async (req, res) => {
+    try {
+        return res.status(200).json({
+            success: true,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao apagar a notificação. Tente mais tarde!",
         });
     }
 }
