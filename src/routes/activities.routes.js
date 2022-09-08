@@ -14,6 +14,7 @@ router.route("/top")
 
 router
   .route("/:activity_id")
+  .put(authController.verifyToken, activitiesController.updateChildActivity)
   .patch(authController.verifyToken, activitiesController.updateOne)
   .delete(authController.verifyToken, activitiesController.deleteOne);
 

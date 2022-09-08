@@ -574,7 +574,7 @@ exports.acceptPersonalized = async (req, res) => {
       useFindAndModify: false, //remove deprecation warning
     }).exec();
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: true,
       message: "Atividade personalizada aceite!",
     });
@@ -619,7 +619,7 @@ exports.rejectPersonalized = async (req, res) => {
 
     await Activity.findByIdAndRemove(req.params.activity_id).exec();
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: true,
       message: "Atividade personalizada recusada!",
     });
@@ -645,7 +645,7 @@ exports.topActivities = async (req, res) => {
       timesDone: -1
     }).exec();
 
-    return res.status(500).json({
+    return res.status(200).json({
       success: true,
       activities: activities.slice(0, 10),
     });
@@ -653,6 +653,19 @@ exports.topActivities = async (req, res) => {
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao obter o top 10 de atividades. Tente mais tarde!",
+    });
+  }
+}
+
+exports.updateChildActivity = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Tivemos problemas ao atualizar os pontos. Tente mais tarde!",
     });
   }
 }
