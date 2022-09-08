@@ -578,15 +578,16 @@ exports.findAllStudents = async (req, res) => {
               tutor: child.tutor.name
             })
           }
+        } else {
+          students.push({
+            _id: child._id,
+            class: item.name,
+            name: child.name,
+            imgProfile: child.imgProfile,
+            email: child.email,
+            tutor: child.tutor.name
+          })
         }
-        students.push({
-          _id: child._id,
-          class: item.name,
-          name: child.name,
-          imgProfile: child.imgProfile,
-          email: child.email,
-          tutor: child.tutor.name
-        })
 
       }
     }
