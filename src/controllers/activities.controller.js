@@ -354,22 +354,112 @@ exports.giveActivity = async (req, res) => {
       error: "O seu tipo de utilizador não tem permissões para dar atividades personalizadas!",
     });
   }
-  if (
-    !req.body.list &&
-    req.body.list.length === 0 &&
-    typeof req.body.list !== "object"
-  ) {
-    return res.status(400).json({
+
+  if (!req.body.list && typeof req.body.list !== "object") {
+    return res.status(404).json({
       success: false,
       error: "É necessário uma lista de crianças!",
     });
   }
   try {
-    return res.status(200).send("OK")
+    // check if activity exists and belongs to logged user
+    const activity = await Activity.findOne({
+      _id: req.params.activity_id,
+      author: req.userId
+    }).exec();
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: `Não encontramos essa atividade!`,
+      });
+    }
+
+    // tutor
+    if (req.typeUser === "Tutor") {
+      // give activity
+      await User.updateMany({
+        _id: {
+          $in: req.body.list
+        },
+        "activitiesPersonalized.activity": {
+          $ne: activity._id
+        }
+      }, {
+        $push: {
+          activitiesPersonalized: {
+            activity: activity._id
+          }
+        }
+      }).exec();
+
+      return res.status(200).json({
+        success: true,
+        message: children.map(
+          (c) =>
+          `Atividade com id ${activity._id} adicionada à criança ${c.username}!`
+        ),
+      });
+    }
+    // teacher
+    else {
+      // check if all classes belong to user and all classes have students
+      const classes = await Class.find({
+        _id: {
+          $in: req.body.list
+        },
+        teacher: req.userId,
+        students: {
+          $exists: true,
+          $ne: []
+        },
+      }).exec();
+
+      if (req.body.list.length !== classes.length) {
+        return res.status(400).json({
+          success: false,
+          error: `${
+            req.body.list.length - classes.length
+          } turmas não existem ou não têem alunos!`,
+        });
+      }
+
+      const students = classes.map((c) => c.students);
+      let studentsList = [];
+      for (const item of students) {
+        for (const name of item) {
+          studentsList.push(name.child);
+        }
+      }
+
+      // give activity
+      await User.updateMany({
+        _id: {
+          $in: studentsList
+        },
+        "activitiesPersonalized.activity": {
+          $ne: activity._id
+        }
+      }, {
+        $push: {
+          activitiesPersonalized: {
+            activity: activity._id
+          }
+        }
+      }).exec();
+
+      return res.status(200).json({
+        success: true,
+        message: classes.map(
+          (c) =>
+          `Atividade ${activity._id} adicionada a todas as crianças da turma ${c.name}!`
+        ),
+      });
+    }
+
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: err.message || "Tivemos problemas ao dar a atividade personalizada às crianças. Tente mais tarde!",
+      error: err.message || "Aconteceu um erro enquanto atribuia a atividade às crianças. Tente mais tarde!",
     });
   }
 }
