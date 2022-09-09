@@ -125,16 +125,26 @@ exports.findAll = async (req, res) => {
         ]
       }).populate("author").exec();
       const arr = [];
+
       for (const activity of activities) {
+
         let foundInTutorSuggestions = await User.findOne({
           _id: req.userId,
-          "activitiesSuggested.activity": activity._id,
-          "activitiesSuggested.suggestedBy": "Tutor"
+          activitiesSuggested: {
+            $elemMatch: {
+              activity: activity._id,
+              suggestedBy: "Tutor"
+            }
+          }
         }).exec();
         let foundInProfessorSuggestions = await User.findOne({
           _id: req.userId,
-          "activitiesSuggested.activity": activity._id,
-          "activitiesSuggested.suggestedBy": "Professor"
+          activitiesSuggested: {
+            $elemMatch: {
+              activity: activity._id,
+              suggestedBy: "Professor"
+            }
+          }
         }).exec();
 
         arr.push({
@@ -146,6 +156,7 @@ exports.findAll = async (req, res) => {
           description: activity.description,
           category: activity.category,
           questions: activity.questions,
+          approved: activity.approved,
           suggestedByTutor: Boolean(foundInTutorSuggestions),
           suggestedByProfessor: Boolean(foundInProfessorSuggestions),
         });
@@ -187,6 +198,7 @@ exports.findAll = async (req, res) => {
         description: activity.description,
         category: activity.category,
         questions: activity.questions,
+        approved: activity.approved,
         personalizedActivity: activity.category.includes("Atividades Personalizadas"),
         suggestedByTutor: activity.suggestedByTutor,
         suggestedByProfessor: activity.suggestedByProfessor,
@@ -199,6 +211,7 @@ exports.findAll = async (req, res) => {
         description: activity.description,
         category: activity.category,
         questions: activity.questions,
+        approved: activity.approved,
         personalizedActivity: activity.category.includes("Atividades Personalizadas")
       };
       finalActivitiesList = matchesAll ? [...finalActivitiesList, item] : finalActivitiesList
