@@ -65,7 +65,10 @@ module.exports = (mongoose) => {
         },
         history: [{
             date: String,
-            title: String,
+            activity: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "activities"
+            },
             questionsRight: Number,
             questionsWrong: Number,
         }],

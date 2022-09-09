@@ -5,7 +5,8 @@ const User = db.users;
 const Class = db.classes;
 const {
   cleanEmptyObjectKeys,
-  shuffleArray
+  shuffleArray,
+  generateDate
 } = require("../helpers");
 
 exports.createOne = async (req, res) => {
@@ -658,14 +659,123 @@ exports.topActivities = async (req, res) => {
 }
 
 exports.updateChildActivity = async (req, res) => {
+  if (req.typeUser !== "Criança") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para atualizar pontos!",
+    });
+  }
+  if (!req.body.points && !req.body.questionsRight && !req.body.questionsWrong) {
+    return res.status(404).json({
+      success: false,
+      error: "É necessário os pontos, número de questões acertadas e número de questões erradas!",
+    });
+  }
+
   try {
+    const activity = await Activity.findById(req.params.activity_id).exec();
+    const child = await User.findById(req.userId).exec();
+
+    await Activity.findByIdAndUpdate(req.params.activity_id, {
+      timesDone: activity.timesDone + 1
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: true, // update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
+
+    await Class.updateMany({
+      "students.child": {
+        $in: req.userId
+      }
+    }, {
+      $set: {
+        "students.$.points": child.totalPoints + req.body.points
+      }
+    }).exec();
+
+    await User.findByIdAndUpdate(req.userId, {
+      $push: {
+        history: {
+          date: generateDate(),
+          activity: req.params.activity_id,
+          questionsRight: req.body.questionsRight,
+          questionsWrong: req.body.questionsWrong,
+        }
+      },
+      totalPoints: child.totalPoints + req.body.points
+    }, {
+      returnOriginal: false, // to return the updated document
+      runValidators: true, // update validators on update command
+      useFindAndModify: false, //remove deprecation warning
+    }).exec();
+
+    const personalized = child.activitiesSuggested.filter(a => a.activity == req.params.activity_id).map(({
+      _id
+    }) => _id)
+    const suggested = child.activitiesSuggested.filter(a => a.activity == req.params.activity_id).map(({
+      _id
+    }) => _id)
+
+    for (const act of personalized) {
+      await User.update({
+        _id: req.userId,
+        "activitiesPersonalized._id": act._id
+      }, {
+        $set: {
+          "activitiesPersonalized.$.isDone": true,
+          "activitiesPersonalized.$.points": act.points + req.body.points
+        }
+      }).exec();
+    }
+
+    for (const act of suggested) {
+      await User.update({
+        _id: req.userId,
+        "activitiesSuggested._id": act._id
+      }, {
+        $set: {
+          "activitiesSuggested.$.isDone": true,
+          "activitiesSuggested.$.points": act.points + req.body.points
+        }
+      }).exec();
+    }
+
     return res.status(200).json({
       success: true,
+      message: "Pontos atualizados com sucesso!",
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
       error: err.message || "Tivemos problemas ao atualizar os pontos. Tente mais tarde!",
+    });
+  }
+}
+
+exports.getActivityChildren = async (req, res) => {
+  if (req.typeUser !== "Tutor" && req.typeUser !== "Professor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para ver as crianças desta atividade!",
+    });
+  }
+  try {
+    const children = await User.find({
+        "activitiesPersonalized.activity": {
+          $in: req.params.activity_id
+        },
+      })
+      .exec();
+
+    return res.status(200).json({
+      success: true,
+      children
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || `Tivemos problemas ao obter as crianças. Tente mais tarde!`,
     });
   }
 }

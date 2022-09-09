@@ -24,6 +24,7 @@ router.route("/:activity_id/permission")
 
 router
   .route("/:activity_id/children")
+  .get(authController.verifyToken, activitiesController.getActivityChildren)
   .post(authController.verifyToken, activitiesController.giveActivity)
   .patch(authController.verifyToken, activitiesController.suggestActivity);
 

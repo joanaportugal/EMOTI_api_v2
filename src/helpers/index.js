@@ -11,4 +11,11 @@ exports.cleanEmptyObjectKeys = (obj) => {
     return obj;
 };
 
+exports.generateDate = () => {
+    const fullDate = new Date();
+    const date = fullDate.getDate() + "/" + fullDate.getMonth() + 1 + "/" + fullDate.getFullYear();
+    const time = fullDate.getHours() + ":" + fullDate.getMinutes()
+    return date + " " + time
+}
+
 exports.shuffleArray = (arr) => arr.sort(() => Math.random() - 0.5);
