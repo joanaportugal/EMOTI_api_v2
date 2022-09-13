@@ -252,7 +252,8 @@ exports.findChild = async (req, res) => {
       child: {
         _id: child._id,
         name: child.name,
-        tutor: child.tutor.username
+        tutor: child.tutor.username,
+        tutorId: child.tutor._id
       },
     });
   } catch (err) {
