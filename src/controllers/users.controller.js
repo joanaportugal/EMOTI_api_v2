@@ -559,7 +559,7 @@ exports.deleteRelation = async (req, res) => {
 }
 
 exports.createNotification = async (req, res) => {
-    // needs user (id for admin)
+    // também - body.user/body.list (ids) e body.toAdmin (boolean)
     if (!req.body.title && !req.body.text) {
         return res.status(404).json({
             success: false,
@@ -604,44 +604,40 @@ exports.createNotification = async (req, res) => {
                 runValidators: true,
                 useFindAndModify: false
             }).exec();
-        } else if (req.typeUser === "Tutor") {
-            // to admin - atividade
-            // to child - atividade sugerida
-            /*await User.updateMany({
-                _id: {
-                    $in: req.body.list
-                }
-            }, {
-                $push: {
-                    notifications: {
-                        title: req.body.title,
-                        text: req.body.text
+        } else if (req.typeUser === "Tutor" || req.typeUser === "Professor") {
+            if (req.body.toAdmin) {
+                await User.updateMany({
+                    typeUser: "Administrador"
+                }, {
+                    $push: {
+                        notifications: {
+                            title: req.body.title,
+                            text: req.body.text
+                        }
                     }
-                }
-            }, {
-                returnOriginal: false,
-                runValidators: true,
-                useFindAndModify: false
-            }).exec();*/
-        } else {
-            // to tutor - pedido de integração
-            // to admin - atividade
-            /*await User.updateMany({
-                _id: {
-                    $in: req.body.list
-                }
-            }, {
-                $push: {
-                    notifications: {
-                        title: req.body.title,
-                        text: req.body.text
+                }, {
+                    returnOriginal: false,
+                    runValidators: true,
+                    useFindAndModify: false
+                }).exec();
+            } else {
+                await User.updateMany({
+                    _id: {
+                        $in: req.body.list
                     }
-                }
-            }, {
-                returnOriginal: false,
-                runValidators: true,
-                useFindAndModify: false
-            }).exec();*/
+                }, {
+                    $push: {
+                        notifications: {
+                            title: req.body.title,
+                            text: req.body.text
+                        }
+                    }
+                }, {
+                    returnOriginal: false,
+                    runValidators: true,
+                    useFindAndModify: false
+                }).exec();
+            }
         }
 
         return res.status(200).json({
