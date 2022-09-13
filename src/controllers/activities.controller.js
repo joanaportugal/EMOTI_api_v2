@@ -735,13 +735,7 @@ exports.rejectPersonalized = async (req, res) => {
 exports.topActivities = async (req, res) => {
   try {
     const activities = await Activity.find({
-      $or: [{
-          public: true
-        },
-        {
-          approved: true
-        }
-      ]
+      public: true
     }).sort({
       timesDone: -1
     }).exec();
