@@ -8,6 +8,7 @@ const {
 } = require("../helpers");
 const db = require("../models");
 const User = db.users;
+const Class = db.classes;
 
 // users
 exports.register = async (req, res) => {
@@ -558,29 +559,90 @@ exports.deleteRelation = async (req, res) => {
 }
 
 exports.createNotification = async (req, res) => {
-    if (!req.body.list && !req.body.title && !req.body.text) {
+    // needs user (id for admin)
+    if (!req.body.title && !req.body.text) {
         return res.status(404).json({
             success: false,
-            error: "É necessário uma lista de utilizadores, título e texto da notificação!",
+            error: "É necessário título e texto da notificação!",
         });
     }
     try {
-        await User.updateMany({
-            _id: {
-                $in: req.body.list
-            }
-        }, {
-            $push: {
-                notifications: {
-                    title: req.body.title,
-                    text: req.body.text
+        if (req.typeUser === "Administrador") {
+            await User.updateById(req.body.user, {
+                $push: {
+                    notifications: {
+                        title: req.body.title,
+                        text: req.body.text
+                    }
                 }
-            }
-        }, {
-            returnOriginal: false,
-            runValidators: true,
-            useFindAndModify: false
-        }).exec();
+            }, {
+                returnOriginal: false,
+                runValidators: true,
+                useFindAndModify: false
+            }).exec();
+        } else if (req.typeUser === "Criança") {
+            const child = await User.findById(req.userId).exec();
+            const classes = await Class.find({
+                "students.child": {
+                    $in: req.userId
+                }
+            }).exec();
+
+            await User.updateMany({
+                _id: {
+                    $in: [child.tutor, ...classes.map(c => c.teacher)]
+                }
+            }, {
+                $push: {
+                    notifications: {
+                        title: req.body.title,
+                        text: req.body.text
+                    }
+                }
+            }, {
+                returnOriginal: false,
+                runValidators: true,
+                useFindAndModify: false
+            }).exec();
+        } else if (req.typeUser === "Tutor") {
+            // to admin - atividade
+            // to child - atividade sugerida
+            /*await User.updateMany({
+                _id: {
+                    $in: req.body.list
+                }
+            }, {
+                $push: {
+                    notifications: {
+                        title: req.body.title,
+                        text: req.body.text
+                    }
+                }
+            }, {
+                returnOriginal: false,
+                runValidators: true,
+                useFindAndModify: false
+            }).exec();*/
+        } else {
+            // to tutor - pedido de integração
+            // to admin - atividade
+            /*await User.updateMany({
+                _id: {
+                    $in: req.body.list
+                }
+            }, {
+                $push: {
+                    notifications: {
+                        title: req.body.title,
+                        text: req.body.text
+                    }
+                }
+            }, {
+                returnOriginal: false,
+                runValidators: true,
+                useFindAndModify: false
+            }).exec();*/
+        }
 
         return res.status(200).json({
             success: true,
