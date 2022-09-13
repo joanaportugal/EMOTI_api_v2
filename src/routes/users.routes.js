@@ -18,7 +18,6 @@ router.route("/admin")
     .post(authController.verifyToken, usersController.createOneAdmin);
 
 router.route("/notifications")
-    .get(authController.verifyToken, usersController.findNotifications)
     .post(authController.verifyToken, usersController.createNotification);
 
 router.route("/notifications/:notification_id")

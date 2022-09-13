@@ -394,10 +394,7 @@ exports.giveActivity = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: children.map(
-          (c) =>
-          `Atividade com id ${activity._id} adicionada à criança ${c.username}!`
-        ),
+        message: `Atividade com id ${activity._id} adicionada às crianças!`
       });
     }
     // teacher

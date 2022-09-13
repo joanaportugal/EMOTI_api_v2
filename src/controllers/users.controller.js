@@ -557,21 +557,6 @@ exports.deleteRelation = async (req, res) => {
     }
 }
 
-exports.findNotifications = async (req, res) => {
-    try {
-        const user = await User.findById(req.userId).exec();
-        return res.status(200).json({
-            success: true,
-            notifications: user.notifications
-        });
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            error: "Tivemos problemas ao obter a lista de notificações. Tente mais tarde!",
-        });
-    }
-}
-
 exports.createNotification = async (req, res) => {
     if (!req.body.list && !req.body.title && !req.body.text) {
         return res.status(404).json({
