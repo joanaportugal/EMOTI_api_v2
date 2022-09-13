@@ -558,6 +558,7 @@ exports.deleteRelation = async (req, res) => {
     }
 }
 
+// notifications
 exports.createNotification = async (req, res) => {
     // também - body.user/body.list (ids) e body.toAdmin (boolean)
     if (!req.body.title && !req.body.text) {
@@ -676,6 +677,45 @@ exports.deleteNotification = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao apagar a notificação. Tente mais tarde!",
+        });
+    }
+}
+
+// history
+exports.getChildrenHistory = async (req, res) => {
+    if (req.typeUser !== "Tutor") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões para ver o histórico das crianças!",
+        });
+    }
+    try {
+        return res.status(200).json({
+            success: true,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao enviar as informações de histórico. Tente mais tarde!",
+        });
+    }
+}
+
+exports.addToHistory = async (req, res) => {
+    if (req.typeUser !== "Criança") {
+        return res.status(403).json({
+            success: false,
+            error: "O seu tipo de utilizador não tem permissões para adicionar histórico!",
+        });
+    }
+    try {
+        return res.status(200).json({
+            success: true,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            error: "Tivemos problemas ao adicionar ao histórico. Tente mais tarde!",
         });
     }
 }

@@ -576,7 +576,8 @@ exports.findAllStudents = async (req, res) => {
               name: child.name,
               imgProfile: child.imgProfile,
               email: child.email,
-              tutor: child.tutor.name
+              tutor: child.tutor.name,
+              totalPoints: child.totalPoints
             })
           }
         } else {

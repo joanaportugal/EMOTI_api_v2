@@ -23,6 +23,10 @@ router.route("/notifications")
 router.route("/notifications/:notification_id")
     .delete(authController.verifyToken, usersController.deleteNotification);
 
+router.route("/history")
+    .get(authController.verifyToken, usersController.getChildrenHistory)
+    .post(authController.verifyToken, usersController.addToHistory);
+
 router.route("/children")
     .get(authController.verifyToken, usersController.findRelations)
     .post(authController.verifyToken, usersController.createRelation);
