@@ -69,8 +69,8 @@ module.exports = (mongoose) => {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "activities"
             },
-            questionsRight: Number,
-            questionsWrong: Number,
+            questionsRight: Array,
+            questionsWrong: Array,
         }],
         last_access: {
             type: String,

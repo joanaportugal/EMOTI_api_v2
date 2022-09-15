@@ -762,7 +762,7 @@ exports.updateChildActivity = async (req, res) => {
   if (!req.body.points && !req.body.questionsRight && !req.body.questionsWrong) {
     return res.status(404).json({
       success: false,
-      error: "É necessário os pontos, número de questões acertadas e número de questões erradas!",
+      error: "É necessário os pontos, as questões acertadas e as questões erradas!",
     });
   }
 
@@ -804,35 +804,32 @@ exports.updateChildActivity = async (req, res) => {
       useFindAndModify: false, //remove deprecation warning
     }).exec();
 
-    const personalized = child.activitiesSuggested.filter(a => a.activity == req.params.activity_id).map(({
-      _id
-    }) => _id)
-    const suggested = child.activitiesSuggested.filter(a => a.activity == req.params.activity_id).map(({
-      _id
-    }) => _id)
-
-    for (const act of personalized) {
-      await User.update({
-        _id: req.userId,
-        "activitiesPersonalized._id": act._id
-      }, {
-        $set: {
-          "activitiesPersonalized.$.isDone": true,
-          "activitiesPersonalized.$.points": act.points + req.body.points
-        }
-      }).exec();
+    if (child.activitiesPersonalized.length > 0) {
+      for (const act of child.activitiesPersonalized) {
+        await User.updateOne({
+          _id: req.userId,
+          "activitiesPersonalized._id": act._id
+        }, {
+          $set: {
+            "activitiesPersonalized.$.isDone": true,
+            "activitiesPersonalized.$.points": act.points + req.body.points
+          }
+        }).exec();
+      }
     }
 
-    for (const act of suggested) {
-      await User.update({
-        _id: req.userId,
-        "activitiesSuggested._id": act._id
-      }, {
-        $set: {
-          "activitiesSuggested.$.isDone": true,
-          "activitiesSuggested.$.points": act.points + req.body.points
-        }
-      }).exec();
+    if (child.activitiesSuggested.length > 0) {
+      for (const act of child.activitiesSuggested) {
+        await User.updateOne({
+          _id: req.userId,
+          "activitiesSuggested._id": act._id
+        }, {
+          $set: {
+            "activitiesSuggested.$.isDone": true,
+            "activitiesSuggested.$.points": act.points + req.body.points
+          }
+        }).exec();
+      }
     }
 
     return res.status(200).json({

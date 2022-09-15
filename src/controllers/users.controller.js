@@ -9,6 +9,7 @@ const {
 const db = require("../models");
 const User = db.users;
 const Class = db.classes;
+const Emotion = db.emotions;
 
 // users
 exports.register = async (req, res) => {
@@ -683,39 +684,130 @@ exports.deleteNotification = async (req, res) => {
 
 // history
 exports.getChildrenHistory = async (req, res) => {
-    if (req.typeUser !== "Tutor") {
+    if (req.typeUser === "Administrador") {
         return res.status(403).json({
             success: false,
-            error: "O seu tipo de utilizador não tem permissões para ver o histórico das crianças!",
+            error: "O seu tipo de utilizador não tem permissões para ver o histórico!",
         });
     }
     try {
-        return res.status(200).json({
-            success: true,
-        });
+        const emotionsList = await Emotion.find().exec();
+        if (req.typeUser === "Criança") {
+            let temphistory = await User.findById(req.userId).select("history -_id").populate("history.activity").exec();
+
+
+            const history = temphistory.history.reduce((acc, curr) => {
+                let idx = acc.findIndex(a => a.date === curr.date);
+                let val = {
+                    title: curr.activity.title,
+                    category: curr.activity.category,
+                    questionsRight: curr.questionsRight,
+                    questionsWrong: curr.questionsWrong,
+                };
+
+                let correctAnswers = curr.activity.questions.map(q => q.correctAnswer)
+
+                if (idx > -1) {
+                    acc[idx].activities.push(val);
+                    for (const emotion of acc[idx].emotions) {
+                        if (correctAnswers.includes(Object.keys(emotion)[0])) {
+                            emotion[Object.keys(emotion)[0]]++;
+                        }
+                    }
+                } else {
+                    acc.push({
+                        date: curr.date,
+                        activities: [val],
+                        emotions: emotionsList.map(em => ({
+                            [em.name]: correctAnswers.includes(em.name) ? 1 : 0
+                        }))
+                    });
+                }
+                return acc;
+            }, []);
+
+            return res.status(200).json({
+                success: true,
+                history
+            });
+        } else {
+            let childrens = [];
+
+            if (req.typeUser === "Professor") {
+                const classes = await Class.find({
+                    teacher: req.userId,
+                    students: {
+                        $exists: true,
+                        $ne: []
+                    }
+                }).exec();
+
+
+                for (const classItem of classes.map(c => c.students)) {
+                    for (const student of classItem) {
+                        childrens.push(student.child)
+                    }
+                }
+            } else {
+                const tutor = await User.findById(req.userId).exec();
+
+                childrens = tutor.children
+            }
+
+            const children = await User.find({
+                _id: {
+                    $in: childrens
+                }
+            }).select("_id username name history").populate("history.activity").exec();
+
+            let list = [];
+
+            for (let i = 0; i < children.length; i++) {
+                let child = children[i];
+                list.push({
+                    _id: child._id,
+                    name: child.name,
+                    username: child.username,
+                });
+                let correctEmotions = [];
+                let correctCategories = [];
+                list[i].history = child.history.reduce((acc, curr) => {
+                    let idx = acc.findIndex(a => a.date === curr.date);
+
+                    if (idx > -1) {
+                        acc[idx].questionsRight += curr.questionsRight.length;
+                        acc[idx].questionsWrong += curr.questionsWrong.length;
+
+                    } else {
+                        acc.push({
+                            date: curr.date,
+                            questionsRight: curr.questionsRight.length,
+                            questionsWrong: curr.questionsWrong.length,
+                        });
+                    }
+                    correctEmotions = [...correctEmotions, ...curr.activity.questions.map(q => q.correctAnswer)]
+                    correctCategories = [...correctCategories, curr.activity.questions.map(q => q.categoryImg)]
+                    return acc;
+                }, []);
+
+                list[i].emotions = emotionsList.map(em => ({
+                    [em.name]: correctEmotions.filter(val => val === em.name).length
+                }));
+                list[i].categories = ["Ilustração", "Realidade", "Realidade/Familiar"].map(cat => ({
+                    [cat]: correctCategories.filter(val => val === cat).length
+                }))
+            }
+
+            return res.status(200).json({
+                success: true,
+                list,
+            });
+        }
     } catch (err) {
+        console.log(err);
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao enviar as informações de histórico. Tente mais tarde!",
-        });
-    }
-}
-
-exports.addToHistory = async (req, res) => {
-    if (req.typeUser !== "Criança") {
-        return res.status(403).json({
-            success: false,
-            error: "O seu tipo de utilizador não tem permissões para adicionar histórico!",
-        });
-    }
-    try {
-        return res.status(200).json({
-            success: true,
-        });
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            error: "Tivemos problemas ao adicionar ao histórico. Tente mais tarde!",
         });
     }
 }
