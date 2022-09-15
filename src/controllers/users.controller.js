@@ -694,6 +694,9 @@ exports.getChildrenHistory = async (req, res) => {
         const emotionsList = await Emotion.find().exec();
         if (req.typeUser === "Criança") {
             let temphistory = await User.findById(req.userId).select("history -_id").populate("history.activity").exec();
+            let emotions = emotionsList.map(em => ({
+                [em.name]: 0
+            }))
 
 
             const history = temphistory.history.reduce((acc, curr) => {
@@ -705,22 +708,18 @@ exports.getChildrenHistory = async (req, res) => {
                     questionsWrong: curr.questionsWrong,
                 };
 
-                let correctAnswers = curr.activity.questions.map(q => q.correctAnswer)
+                for (const question of curr.questionsRight) {
+                    let emotionName = curr.activity.questions[question].correctAnswer;
+                    let emotionIndex = emotions.findIndex(e => Object.keys(e)[0] === emotionName);
+                    emotions[emotionIndex][emotionName] += curr.activity.questions[question].points
+                }
 
                 if (idx > -1) {
                     acc[idx].activities.push(val);
-                    for (const emotion of acc[idx].emotions) {
-                        if (correctAnswers.includes(Object.keys(emotion)[0])) {
-                            emotion[Object.keys(emotion)[0]]++;
-                        }
-                    }
                 } else {
                     acc.push({
                         date: curr.date,
                         activities: [val],
-                        emotions: emotionsList.map(em => ({
-                            [em.name]: correctAnswers.includes(em.name) ? 1 : 0
-                        }))
                     });
                 }
                 return acc;
@@ -728,7 +727,8 @@ exports.getChildrenHistory = async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                history
+                history,
+                emotions
             });
         } else {
             let childrens = [];
