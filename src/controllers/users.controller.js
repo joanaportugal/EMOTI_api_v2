@@ -804,7 +804,6 @@ exports.getChildrenHistory = async (req, res) => {
             });
         }
     } catch (err) {
-        console.log(err);
         return res.status(500).json({
             success: false,
             error: "Tivemos problemas ao enviar as informações de histórico. Tente mais tarde!",

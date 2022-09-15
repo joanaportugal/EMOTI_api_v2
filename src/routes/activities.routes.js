@@ -12,6 +12,9 @@ router.route("/")
 router.route("/top")
   .get(authController.verifyToken, activitiesController.topActivities);
 
+router.route("/history")
+  .get(authController.verifyToken, activitiesController.getActivityHistory);
+
 router
   .route("/:activity_id")
   .put(authController.verifyToken, activitiesController.updateChildActivity)

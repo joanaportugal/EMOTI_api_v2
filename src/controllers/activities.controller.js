@@ -870,3 +870,71 @@ exports.getActivityChildren = async (req, res) => {
     });
   }
 }
+
+exports.getActivityHistory = async (req, res) => {
+  if (req.typeUser !== "Tutor" && req.typeUser !== "Professor") {
+    return res.status(403).json({
+      success: false,
+      error: "O seu tipo de utilizador não tem permissões para ver as crianças desta atividade!",
+    });
+  }
+
+  try {
+    const activities = await Activity.find({
+        "author": req.userId
+      })
+      .exec();
+    const emotionsList = await Emotion.find().exec();
+
+
+    let list = [];
+
+    for (const activity of activities) {
+      let listItem = {
+        _id: activity._id,
+        title: activity.title,
+        approved: activity.approved,
+        questionsRight: 0,
+        questionsWrong: 0,
+        wrongEmotions: []
+      }
+      const children = await User.find({
+        "history.activity": activity._id
+      }).select("_id name username history").populate("history.activity").exec();
+
+      for (const child of children) {
+        for (const item of child.history) {
+          if (item.activity.title === activity.title) {
+            listItem.questionsRight += item.questionsRight.length;
+            listItem.questionsWrong += item.questionsWrong.length;
+
+            listItem.wrongEmotions = emotionsList.map(em => ({
+              [em.name]: 0
+            }));
+            for (const questionWrong of item.questionsWrong) {
+              let correctAnswer = item.activity.questions[+questionWrong].correctAnswer;
+              for (let i = 0; i < listItem.wrongEmotions.length; i++) {
+                let emotion = listItem.wrongEmotions[i];
+                if (correctAnswer in emotion) {
+                  listItem.wrongEmotions[i][correctAnswer] += 1
+                }
+              }
+            }
+
+          }
+        }
+      }
+      list.push(listItem)
+    }
+
+    return res.status(200).json({
+      success: true,
+      list
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || `Tivemos problemas ao histórico das atividades extras ads crianças. Tente mais tarde!`,
+    });
+  }
+}
