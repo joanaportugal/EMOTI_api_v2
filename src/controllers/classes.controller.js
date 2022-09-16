@@ -97,7 +97,8 @@ exports.findClasses = async (req, res) => {
           }) => ({
             _id: child._id,
             name: child.name,
-            tutor: child.tutor.name
+            tutor: child.tutor.name,
+            totalPoints: child.totalPoints
           })),
           statistics: c.statistics,
           initials
