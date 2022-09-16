@@ -785,13 +785,16 @@ exports.getChildrenHistory = async (req, res) => {
                             questionsWrong: curr.questionsWrong.length,
                         });
                     }
-                    correctEmotions = [...correctEmotions, ...curr.activity.questions.map(q => q.correctAnswer)]
+                    correctEmotions = [...correctEmotions, ...curr.activity.questions]
                     correctCategories = [...correctCategories, curr.activity.questions.map(q => q.categoryImg)]
                     return acc;
                 }, []);
 
                 list[i].emotions = emotionsList.map(em => ({
-                    [em.name]: correctEmotions.filter(val => val === em.name).length
+                    [em.name]: correctEmotions.map(q => q.correctAnswer).filter(val => val === em.name).length,
+                    points: correctEmotions.filter(val => val.correctAnswer === em.name).reduce((acc, element) => {
+                        return acc + element.points;
+                    }, 0)
                 }));
                 list[i].categories = ["Ilustração", "Realidade", "Realidade/Familiar"].map(cat => ({
                     [cat]: correctCategories.filter(val => val === cat).length
