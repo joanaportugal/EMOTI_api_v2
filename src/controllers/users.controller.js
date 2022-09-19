@@ -696,8 +696,8 @@ exports.getChildrenHistory = async (req, res) => {
             let temphistory = await User.findById(req.userId).select("history -_id").populate("history.activity").exec();
             let emotions = emotionsList.map(em => ({
                 [em.name]: 0
-            }))
-
+            }));
+            let correctCategories = [];
 
             const history = temphistory.history.reduce((acc, curr) => {
                 let idx = acc.findIndex(a => a.date === curr.date);
@@ -714,6 +714,8 @@ exports.getChildrenHistory = async (req, res) => {
                     emotions[emotionIndex][emotionName] += curr.activity.questions[question].points
                 }
 
+                correctCategories = [...correctCategories, ...curr.activity.questions.map(q => q.categoryImg)]
+
                 if (idx > -1) {
                     acc[idx].activities.push(val);
                 } else {
@@ -728,7 +730,10 @@ exports.getChildrenHistory = async (req, res) => {
             return res.status(200).json({
                 success: true,
                 history,
-                emotions
+                emotions,
+                categories: ["Ilustração", "Realidade", "Realidade/Familiar"].map(cat => ({
+                    [cat]: correctCategories.filter(val => val === cat).length
+                }))
             });
         } else {
             let childrens = [];
@@ -786,7 +791,7 @@ exports.getChildrenHistory = async (req, res) => {
                         });
                     }
                     correctEmotions = [...correctEmotions, ...curr.activity.questions]
-                    correctCategories = [...correctCategories, curr.activity.questions.map(q => q.categoryImg)]
+                    correctCategories = [...correctCategories, ...curr.activity.questions.map(q => q.categoryImg)]
                     return acc;
                 }, []);
 

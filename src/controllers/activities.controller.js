@@ -326,7 +326,7 @@ exports.deleteOne = async (req, res) => {
     });
   }
   try {
-    const activity = await Activity.findByIdAndRemove(req.params.activity._id).exec();
+    const activity = await Activity.findByIdAndRemove(req.params.activity_id).exec();
 
     if (!activity) {
       return res.status(404).json({
@@ -896,11 +896,18 @@ exports.getActivityHistory = async (req, res) => {
         approved: activity.approved,
         questionsRight: 0,
         questionsWrong: 0,
-        wrongEmotions: []
+        wrongQuestions: []
       }
       const children = await User.find({
         "history.activity": activity._id
       }).select("_id name username history").populate("history.activity").exec();
+
+      for (let index = 0; index < activity.questions.length; index++) {
+        listItem.wrongQuestions.push({
+          [`Questão ${index+1}`]: 0
+        })
+      }
+
 
       for (const child of children) {
         for (const item of child.history) {
@@ -908,18 +915,10 @@ exports.getActivityHistory = async (req, res) => {
             listItem.questionsRight += item.questionsRight.length;
             listItem.questionsWrong += item.questionsWrong.length;
 
-            listItem.wrongEmotions = emotionsList.map(em => ({
-              [em.name]: 0
-            }));
-            for (const questionWrong of item.questionsWrong) {
-              let correctAnswer = item.activity.questions[+questionWrong].correctAnswer;
-              for (let i = 0; i < listItem.wrongEmotions.length; i++) {
-                let emotion = listItem.wrongEmotions[i];
-                if (correctAnswer in emotion) {
-                  listItem.wrongEmotions[i][correctAnswer] += 1
-                }
-              }
+            for (let index = 0; index < item.questionsWrong.length; index++) {
+              listItem.wrongQuestions[index][`Questão ${index+1}`] = listItem.wrongQuestions[index][`Questão ${index+1}`] + 1
             }
+            console.log(listItem.wrongQuestions);
 
           }
         }
@@ -934,7 +933,7 @@ exports.getActivityHistory = async (req, res) => {
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: err.message || `Tivemos problemas ao histórico das atividades extras ads crianças. Tente mais tarde!`,
+      error: err.message || `Tivemos problemas ao histórico das atividades extras das crianças. Tente mais tarde!`,
     });
   }
 }
