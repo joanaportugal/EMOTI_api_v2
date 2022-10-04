@@ -335,6 +335,16 @@ exports.deleteOne = async (req, res) => {
       });
     }
 
+    await User.updateMany({
+      "activitiesPersonalized.activity": req.params.activity_id
+    }, {
+      $pull: {
+        activitiesPersonalized: {
+          activity: req.params.activity_id
+        }
+      }
+    }).exec();
+
     return res.status(200).json({
       success: true,
       message: "Atividade apagada!",
@@ -884,8 +894,6 @@ exports.getActivityHistory = async (req, res) => {
         "author": req.userId
       })
       .exec();
-    const emotionsList = await Emotion.find().exec();
-
 
     let list = [];
 
@@ -918,8 +926,6 @@ exports.getActivityHistory = async (req, res) => {
             for (let index = 0; index < item.questionsWrong.length; index++) {
               listItem.wrongQuestions[index][`Questão ${index+1}`] = listItem.wrongQuestions[index][`Questão ${index+1}`] + 1
             }
-            console.log(listItem.wrongQuestions);
-
           }
         }
       }
