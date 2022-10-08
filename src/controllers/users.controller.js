@@ -10,6 +10,7 @@ const db = require("../models");
 const User = db.users;
 const Class = db.classes;
 const Emotion = db.emotions;
+const Activity = db.activities;
 
 // users
 exports.register = async (req, res) => {
@@ -366,7 +367,49 @@ exports.deleteOne = async (req, res) => {
 
         await User.findByIdAndRemove(req.params.user_id).exec();
 
-        // missing relations
+        if (user.typeUser === "Criança") {
+            await User.findByIdAndUpdate(req.params.user_id, {
+                $pull: {
+                    children: req.params.user_id
+                }
+            }, {
+                returnOriginal: false, // to return the updated document
+                runValidators: false, //runs update validators on update command
+                useFindAndModify: false, //remove deprecation warning
+            }).exec();
+
+            await Class.updateMany({}, {
+                $pull: {
+                    "students": {
+                        child: req.params.user_id
+                    },
+                    "requests": req.params.user_id
+                },
+            }).exec();
+
+        } else if (user.typeUser === "Tutor") {
+            await User.updateMany({
+                tutor: req.params.user_id
+            }, {
+                tutor: ""
+            }, {
+                returnOriginal: false, // to return the updated document
+                runValidators: false, //runs update validators on update command
+                useFindAndModify: false, //remove deprecation warning
+            }).exec();
+
+            await Activity.deleteMany({
+                author: req.params.user_id
+            }).exec();
+        } else {
+            await Class.deleteMany({
+                teacher: req.params.user_id
+            }).exec();
+
+            await Activity.deleteMany({
+                author: req.params.user_id
+            }).exec();
+        }
 
         return res.status(200).json({
             success: true,
